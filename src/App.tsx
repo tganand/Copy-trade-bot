@@ -4,10 +4,13 @@ import {
   CheckCircle,
   AlertCircle,
   Zap,
+  Scale,
+  Sparkles,
 } from 'lucide-react';
 import { Header } from './components/Header.tsx';
 import { BotSettingsModal } from './components/BotSettingsModal.tsx';
 import { MomentumPanel } from './components/MomentumPanel.tsx';
+import { PairStrategyPanel } from './components/PairStrategyPanel.tsx';
 import { soundFX } from './utils/audio.ts';
 import {
   BotConfig,
@@ -15,6 +18,7 @@ import {
   PaperPosition,
   ActiveBtcWindow,
   Btc15mBotConfig,
+  PairStrategyConfig,
   PaperAccount,
 } from './types/index.ts';
 
@@ -90,6 +94,12 @@ export default function App() {
   const [momentumConfigs, setMomentumConfigs] = useState<Record<string, Btc15mBotConfig>>({});
   const [activeMomentumWindows, setActiveMomentumWindows] = useState<Record<string, ActiveBtcWindow | null>>({});
 
+  // 75¢ / 20¢ Pair Arbitrage Strategy ($100 Separate Bankroll)
+  const [pairAccounts, setPairAccounts] = useState<Record<string, PaperAccount>>({});
+  const [pairMetrics, setPairMetrics] = useState<Record<string, PortfolioMetrics>>({});
+  const [pairConfigs, setPairConfigs] = useState<Record<string, PairStrategyConfig>>({});
+  const [activeStrategyTab, setActiveStrategyTab] = useState<'momentum' | 'pair'>('momentum');
+
   useEffect(() => {
     const eventSource = new EventSource('/api/stream');
     eventSource.onmessage = (event) => {
@@ -121,6 +131,15 @@ export default function App() {
         if (data.momentumMetrics) {
           setMomentumMetrics(data.momentumMetrics);
         }
+        if (data.pairAccounts) {
+          setPairAccounts(data.pairAccounts);
+        }
+        if (data.pairConfigs) {
+          setPairConfigs(data.pairConfigs);
+        }
+        if (data.pairMetrics) {
+          setPairMetrics(data.pairMetrics);
+        }
       } catch (e) {
         console.warn('SSE parse error:', e);
       }
@@ -149,9 +168,10 @@ export default function App() {
     try {
       setIsPolling(true);
 
-      const [statusRes, momRes] = await Promise.all([
+      const [statusRes, momRes, pairRes] = await Promise.all([
         fetch('/api/status'),
         fetch('/api/momentum'),
+        fetch('/api/pair-strategy'),
       ]);
 
       if (statusRes.ok) {
@@ -168,6 +188,14 @@ export default function App() {
         if (momData.activeMomentumWindows !== undefined) setActiveMomentumWindows(momData.activeMomentumWindows);
         if (momData.momentumMetrics) setMomentumMetrics(momData.momentumMetrics);
         if (momData.marketBooks) setMarketBooks((prev) => ({ ...prev, ...momData.marketBooks }));
+      }
+
+      if (pairRes && pairRes.ok) {
+        const pData = await pairRes.json();
+        if (pData.pairAccounts) setPairAccounts(pData.pairAccounts);
+        if (pData.pairConfigs) setPairConfigs(pData.pairConfigs);
+        if (pData.pairMetrics) setPairMetrics(pData.pairMetrics);
+        if (pData.marketBooks) setMarketBooks((prev) => ({ ...prev, ...pData.marketBooks }));
       }
     } catch (err: any) {
       console.warn('Sync cycle warning:', err.message);
@@ -280,6 +308,60 @@ export default function App() {
       }
     } catch {
       setBannerAlert({ msg: `Failed to close ${symbol} position`, type: 'error' });
+      setTimeout(() => setBannerAlert(null), 3000);
+    }
+  };
+
+  const handleResetPair = async (symbol: string) => {
+    try {
+      const res = await fetch(`/api/pair-strategy/${symbol}/reset`, { method: 'POST' });
+      if (res.ok) {
+        const d = await res.json();
+        setPairAccounts(prev => ({ ...prev, [symbol]: d.account }));
+        setBannerAlert({
+          msg: `${symbol} Pair Arbitrage bankroll restored to $100.00 and positions cleared.`,
+          type: 'success',
+        });
+        setTimeout(() => setBannerAlert(null), 3000);
+      }
+    } catch {
+      setBannerAlert({ msg: `Failed to reset ${symbol} pair account`, type: 'error' });
+      setTimeout(() => setBannerAlert(null), 3000);
+    }
+  };
+
+  const handleClosePairPosition = async (symbol: string, positionId: string) => {
+    try {
+      const res = await fetch(`/api/pair-strategy/${symbol}/close-position`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ positionId }),
+      });
+      if (res.ok) {
+        setBannerAlert({ msg: `Pair position closed and proceeds credited to pair balance.`, type: 'success' });
+        setTimeout(() => setBannerAlert(null), 3000);
+        await fetchData();
+      }
+    } catch {
+      setBannerAlert({ msg: `Failed to close pair position`, type: 'error' });
+      setTimeout(() => setBannerAlert(null), 3000);
+    }
+  };
+
+  const handleTogglePairStrategy = async (symbol: string) => {
+    try {
+      const res = await fetch(`/api/pair-strategy/${symbol}/toggle`, { method: 'POST' });
+      if (res.ok) {
+        const d = await res.json();
+        setPairConfigs(prev => ({ ...prev, [symbol]: d.config }));
+        setBannerAlert({
+          msg: `Pair strategy is now ${d.isEnabled ? 'active' : 'paused'}.`,
+          type: 'info',
+        });
+        setTimeout(() => setBannerAlert(null), 3000);
+      }
+    } catch {
+      setBannerAlert({ msg: `Failed to toggle pair strategy`, type: 'error' });
       setTimeout(() => setBannerAlert(null), 3000);
     }
   };
@@ -433,21 +515,140 @@ export default function App() {
           </div>
         )}
 
-        {/* Bitcoin 15m Momentum Terminal Cockpit */}
-        <MomentumPanel
-          symbol="BTC"
-          activeWindow={activeMomentumWindows['BTC'] || null}
-          marketBooks={marketBooks}
-          account={momentumAccounts['BTC'] || { initialBalance: 100, cashBalance: 100, positions: {}, history: [] } as any}
-          metrics={momentumMetrics['BTC'] || {
-            initialBalance: 100, cashBalance: 100, unrealizedPnl: 0, realizedPnl: 0, winRate: 0, winningTrades: 0, losingTrades: 0,
-            totalTradesCount: 0, totalPnl: 0, totalPnlPercent: 0, openPositionsCount: 0, dailyTarget: 20, isDailyTargetReached: false,
-            activePositionsValue: 0, totalPortfolioValue: 100, totalFeesPaid: 0, todayRealizedPnl: 0,
-          }}
-          config={momentumConfigs['BTC'] || { isEnabled: true, stakeSize: 10, entryThreshold: 0.75, stopLossPrice: 0.60, takeProfitPrice: 0.97 }}
-          onResetAccount={() => handleResetMomentum('BTC')}
-          onClosePosition={(posId) => handleCloseMomentumPosition('BTC', posId)}
-        />
+        {/* Strategy Switcher Tab Navigation */}
+        <div className="bg-slate-900/90 border border-slate-800 p-2 sm:p-2.5 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => setActiveStrategyTab('momentum')}
+              className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 ${
+                activeStrategyTab === 'momentum'
+                  ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25 ring-2 ring-amber-400'
+                  : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white'
+              }`}
+            >
+              <Zap className="w-4 h-4" />
+              <span>Strategy 1: Momentum (75¢ Breakout + $1 Hedge)</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/20">
+                ${momentumAccounts['BTC']?.cashBalance?.toFixed(2) || '100.00'}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveStrategyTab('pair')}
+              className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 ${
+                activeStrategyTab === 'pair'
+                  ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/25 ring-2 ring-purple-400'
+                  : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white'
+              }`}
+            >
+              <Scale className="w-4 h-4" />
+              <span>Strategy 2: Pair Arbitrage (10 Shares @ 75¢ / 20¢)</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/20">
+                ${pairAccounts['BTC']?.cashBalance?.toFixed(2) || '100.00'}
+              </span>
+            </button>
+          </div>
+
+          <div className="text-[11px] font-mono text-slate-400 flex items-center gap-2 self-end sm:self-center">
+            <span>Window: <b className="text-white">15m BTC</b></span>
+            <span className="text-slate-600">·</span>
+            <span>Independent Balances: <b className="text-emerald-400">$100 each</b></span>
+          </div>
+        </div>
+
+        {/* Strategy 1: Bitcoin 15m Momentum Terminal Cockpit */}
+        {activeStrategyTab === 'momentum' && (
+          <MomentumPanel
+            symbol="BTC"
+            activeWindow={activeMomentumWindows['BTC'] || null}
+            marketBooks={marketBooks}
+            account={momentumAccounts['BTC'] || { initialBalance: 100, cashBalance: 100, positions: {}, history: [] } as any}
+            metrics={momentumMetrics['BTC'] || {
+              initialBalance: 100, cashBalance: 100, unrealizedPnl: 0, realizedPnl: 0, winRate: 0, winningTrades: 0, losingTrades: 0,
+              totalTradesCount: 0, totalPnl: 0, totalPnlPercent: 0, openPositionsCount: 0, dailyTarget: 20, isDailyTargetReached: false,
+              activePositionsValue: 0, totalPortfolioValue: 100, totalFeesPaid: 0, todayRealizedPnl: 0,
+            }}
+            config={momentumConfigs['BTC'] || { isEnabled: true, stakeSize: 10, entryThreshold: 0.75, stopLossPrice: 0.60, takeProfitPrice: 0.97 }}
+            onResetAccount={() => handleResetMomentum('BTC')}
+            onClosePosition={(posId) => handleCloseMomentumPosition('BTC', posId)}
+          />
+        )}
+
+        {/* Strategy 2: 75¢ / 20¢ Pair Arbitrage Strategy */}
+        {activeStrategyTab === 'pair' && (
+          <PairStrategyPanel
+            symbol="BTC"
+            activeWindow={activeMomentumWindows['BTC'] || null}
+            marketBooks={marketBooks}
+            account={pairAccounts['BTC'] || { initialBalance: 100, cashBalance: 100, positions: {}, history: [] } as any}
+            metrics={pairMetrics['BTC'] || {
+              initialBalance: 100, cashBalance: 100, unrealizedPnl: 0, realizedPnl: 0, winRate: 0, winningTrades: 0, losingTrades: 0,
+              totalTradesCount: 0, totalPnl: 0, totalPnlPercent: 0, openPositionsCount: 0, dailyTarget: 20, isDailyTargetReached: false,
+              activePositionsValue: 0, totalPortfolioValue: 100, totalFeesPaid: 0, todayRealizedPnl: 0,
+            }}
+            config={pairConfigs['BTC'] || { isEnabled: true, shares: 10, highThreshold: 0.75, lowThreshold: 0.20 }}
+            onResetAccount={() => handleResetPair('BTC')}
+            onClosePosition={(posId) => handleClosePairPosition('BTC', posId)}
+            onToggleStrategy={() => handleTogglePairStrategy('BTC')}
+          />
+        )}
+
+        {/* Live Changelog & Strategy Updates Card */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl backdrop-blur-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <h3 className="text-sm font-bold text-slate-100 uppercase tracking-wider">
+                Recent Bot Updates & Changelog
+              </h3>
+            </div>
+            <span className="text-[11px] font-mono text-slate-400">
+              Auto-Tracked Real-Time Engine Updates
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
+            <div className="p-3.5 rounded-xl bg-purple-950/20 border border-purple-500/30 space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-purple-300">
+                <span className="flex h-2 w-2 rounded-full bg-purple-400" />
+                <span>NEW: 75¢ / 20¢ Pair Arbitrage Strategy Section</span>
+              </div>
+              <p className="text-slate-400 leading-relaxed font-mono text-[11px]">
+                Added dedicated section with an independent <b>$100.00 bankroll</b>. When UP or DOWN hits 75¢, bot buys 10 shares of the 75¢ leg ($7.50) and 10 shares of the 20¢ leg ($2.00) for a $9.50 total cost. Exactly 1 side resolves to $1.00 ($10 payout) yielding a guaranteed profit net of fees.
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-500/30 space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-emerald-300">
+                <span className="flex h-2 w-2 rounded-full bg-emerald-400" />
+                <span>FIXED: Strict Mutual Exclusion Resolution</span>
+              </div>
+              <p className="text-slate-400 leading-relaxed font-mono text-[11px]">
+                Eliminated the double-profit glitch on expiring windows. Positions are grouped per window; the winning outcome settles strictly at $1.00 ($10.00 payout) and the losing outcome settles strictly at $0.00 (0 proceeds, -100% loss).
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-amber-950/20 border border-amber-500/30 space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-amber-300">
+                <span className="flex h-2 w-2 rounded-full bg-amber-400" />
+                <span>FIXED: 82¢ Upper Execution Ceiling</span>
+              </div>
+              <p className="text-slate-400 leading-relaxed font-mono text-[11px]">
+                Enforced a strict hard cap preventing buys when contracts are priced at 85¢ or above. Trades strictly execute inside the 75¢–82¢ entry corridor with book depth checks.
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-sky-950/20 border border-sky-500/30 space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-sky-300">
+                <span className="flex h-2 w-2 rounded-full bg-sky-400" />
+                <span>ENHANCED: 100% Net Profit & Fee Transparency</span>
+              </div>
+              <p className="text-slate-400 leading-relaxed font-mono text-[11px]">
+                All profit counters, bankroll balances, and trade ledgers reflect returns strictly after all Polymarket taker fees are deducted.
+              </p>
+            </div>
+          </div>
+        </div>
       </main>
 
       {/* Footer */}

@@ -241,8 +241,16 @@ export interface Btc15mBotConfig {
   isEnabled: boolean;
   stakeSize: number; // $10.00
   entryThreshold: number; // 0.75 (75¢)
-  stopLossPrice: number; // 0.40 (40¢)
-  takeProfitPrice: number; // 1.00 (100¢)
+  stopLossPrice: number; // 0.60 (60¢)
+  takeProfitPrice: number; // 0.97 (97¢)
 }
+
+export interface PairStrategyConfig {
+  isEnabled: boolean;
+  shares: number; // default 10 shares
+  highThreshold: number; // default 0.75 (75¢)
+  lowThreshold: number; // default 0.20 (20¢)
+}
+
 
 

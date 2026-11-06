@@ -29,6 +29,7 @@ import {
   CopyTradeRecord,
   ActiveBtcWindow,
   Btc15mBotConfig,
+  PairStrategyConfig,
   PortfolioMetrics,
 } from './src/types/index.ts';
 
@@ -116,6 +117,9 @@ interface PersistedState {
   momentumAccounts: Record<string, PaperAccount>;
   momentumConfigs: Record<string, Btc15mBotConfig>;
   momentumTradedWindows: Record<string, string[]>;
+  pairAccounts?: Record<string, PaperAccount>;
+  pairConfigs?: Record<string, PairStrategyConfig>;
+  pairTradedWindows?: Record<string, string[]>;
   processedFingerprints: Record<string, number>;
   dedupRingBuffer: any[];
   counters: {
@@ -144,6 +148,17 @@ const momentumConfigs: Record<string, Btc15mBotConfig> = {
 };
 let momentumTradedWindows: Record<string, Set<string>> = { 'BTC': new Set() };
 let crossedThresholdTime: Record<string, number> = {};
+
+// --- 75¢ / 20¢ Pair Arbitrage Strategy ($100 Separate Bankroll) ---
+const pairAccounts: Record<string, PaperAccount> = {
+  'BTC': createInitialAccount(100.0),
+};
+const pairConfigs: Record<string, PairStrategyConfig> = {
+  'BTC': { isEnabled: true, shares: 10, highThreshold: 0.75, lowThreshold: 0.20 },
+};
+let pairTradedWindows: Record<string, Set<string>> = { 'BTC': new Set() };
+let pairCrossedThresholdTime: Record<string, number> = {};
+
 let activeMomentumWindows: Record<string, ActiveBtcWindow | null> = { 'BTC': null };
 let processedFingerprints: Record<string, number> = {};
 let dedupRingBuffer: any[] = [];
@@ -216,6 +231,29 @@ function loadState() {
           momentumTradedWindows['BTC'] = new Set(parsed.momentumTradedWindows['BTC']);
         }
       }
+      if (parsed.pairAccounts && parsed.pairAccounts['BTC']) {
+        const pAcc = parsed.pairAccounts['BTC'];
+        if (pAcc.initialBalance !== 100.0) {
+          const diff = 100.0 - pAcc.initialBalance;
+          pAcc.initialBalance = 100.0;
+          pAcc.cashBalance = Number((pAcc.cashBalance + diff).toFixed(4));
+        }
+        if (pAcc.currentStakeSize === undefined || isNaN(pAcc.currentStakeSize)) {
+          pAcc.currentStakeSize = 10.0;
+        }
+        pairAccounts['BTC'] = pAcc;
+      }
+      if (parsed.pairConfigs && parsed.pairConfigs['BTC']) {
+        pairConfigs['BTC'] = {
+          isEnabled: parsed.pairConfigs['BTC'].isEnabled ?? true,
+          shares: parsed.pairConfigs['BTC'].shares || 10,
+          highThreshold: parsed.pairConfigs['BTC'].highThreshold || 0.75,
+          lowThreshold: parsed.pairConfigs['BTC'].lowThreshold || 0.20,
+        };
+      }
+      if (parsed.pairTradedWindows && parsed.pairTradedWindows['BTC']) {
+        pairTradedWindows['BTC'] = new Set(parsed.pairTradedWindows['BTC']);
+      }
       if (parsed.processedFingerprints) processedFingerprints = parsed.processedFingerprints;
       if (Array.isArray(parsed.dedupRingBuffer)) dedupRingBuffer = parsed.dedupRingBuffer;
       if (parsed.counters) telemetryCounters = { ...telemetryCounters, ...parsed.counters };
@@ -243,6 +281,11 @@ function flushState() {
       momentumConfigs,
       momentumTradedWindows: Object.fromEntries(
         Object.entries(momentumTradedWindows).map(([symbol, windows]) => [symbol, Array.from(windows).slice(-100)])
+      ),
+      pairAccounts,
+      pairConfigs,
+      pairTradedWindows: Object.fromEntries(
+        Object.entries(pairTradedWindows).map(([symbol, windows]) => [symbol, Array.from(windows).slice(-100)])
       ),
       processedFingerprints,
       dedupRingBuffer,
@@ -694,12 +737,16 @@ function evaluatePositionRiskManagement() {
 setInterval(evaluatePositionRiskManagement, 250);
 setInterval(() => {
   evaluateMomentumStrategy('BTC');
+  evaluatePairStrategy('BTC');
 }, 100);
 
 setInterval(() => {
   if (sseClients.size > 0 && (activeBtcWindow || activeMomentumWindows['BTC'])) {
     const momentumMetrics: Record<string, PortfolioMetrics> = {
       'BTC': calculatePortfolioMetrics(momentumAccounts['BTC'], livePrices),
+    };
+    const pairMetrics: Record<string, PortfolioMetrics> = {
+      'BTC': calculatePortfolioMetrics(pairAccounts['BTC'], livePrices),
     };
     broadcastSSE({
       type: 'market_update',
@@ -714,6 +761,9 @@ setInterval(() => {
       momentumAccounts,
       momentumConfigs,
       momentumMetrics,
+      pairAccounts,
+      pairConfigs,
+      pairMetrics,
     });
   }
 }, 100);
@@ -1402,6 +1452,154 @@ function evaluateMomentumStrategy(symbol: string) {
   }
 }
 
+function evaluatePairStrategy(symbol: string) {
+  const activeWindow = activeMomentumWindows[symbol];
+  if (!activeWindow) return;
+  const account = pairAccounts[symbol];
+  const config = pairConfigs[symbol];
+  const tradedWindows = pairTradedWindows[symbol];
+  if (!config || !config.isEnabled) return;
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  const upAsset = activeWindow.upTokenId;
+  const downAsset = activeWindow.downTokenId;
+
+  const upBook = marketBooks[upAsset];
+  const downBook = marketBooks[downAsset];
+
+  const upPrice = upBook?.bestAsk > 0 ? upBook.bestAsk : (upBook?.bestBid > 0 ? upBook.bestBid : (upBook?.lastPrice > 0 ? upBook.lastPrice : (activeWindow.outcomePrices?.[0] || livePrices[upAsset] || 0.5)));
+  const downPrice = downBook?.bestAsk > 0 ? downBook.bestAsk : (downBook?.bestBid > 0 ? downBook.bestBid : (downBook?.lastPrice > 0 ? downBook.lastPrice : (activeWindow.outcomePrices?.[1] || livePrices[downAsset] || 0.5)));
+
+  // 1. Position tracking
+  for (const [key, pos] of Object.entries(account.positions)) {
+    const isUp = pos.outcome.toUpperCase() === 'UP';
+    const thisAsset = pos.asset;
+    const thisBook = marketBooks[thisAsset];
+
+    const directBid = thisBook && thisBook.bestBid > 0 ? thisBook.bestBid : null;
+    const directAsk = thisBook && thisBook.bestAsk > 0 ? thisBook.bestAsk : null;
+    const lastP = thisBook && thisBook.lastPrice > 0 ? thisBook.lastPrice : null;
+
+    const gammaPrice = activeWindow.outcomePrices && activeWindow.outcomePrices.length >= 2
+      ? (isUp ? activeWindow.outcomePrices[0] : activeWindow.outcomePrices[1])
+      : null;
+
+    let liveExitPrice: number = directBid !== null && directBid > 0 
+      ? directBid 
+      : (directAsk !== null && directAsk > 0 
+        ? directAsk 
+        : (lastP !== null && lastP > 0 
+          ? lastP 
+          : (gammaPrice !== null && gammaPrice > 0 ? gammaPrice : pos.currentPrice)));
+
+    pos.currentPrice = liveExitPrice;
+    pos.currentValue = Number((pos.shares * liveExitPrice).toFixed(4));
+    pos.unrealizedPnl = Number((pos.currentValue - pos.totalCost).toFixed(4));
+    pos.unrealizedPnlPercent = Number((((liveExitPrice - pos.entryPrice) / (pos.entryPrice || 1)) * 100).toFixed(2));
+  }
+
+  // 2. Auto-close expired window positions (Guaranteed 1 winner @ $1.00, 1 loser @ $0.00)
+  const histBefore = account.history.length;
+  pairAccounts[symbol] = autoClosePastWindowPositions(account, Math.floor(activeWindow.startDate / 1000), livePrices);
+  if (account.history.length > histBefore) {
+    flushState();
+  }
+
+  // 3. Entry filters
+  const now = Date.now();
+  const windowSlug = activeWindow.slug;
+  if (tradedWindows.has(windowSlug)) {
+    return;
+  }
+
+  const hasOpenInWindow = Object.values(account.positions).some(p => p.slug === windowSlug || p.conditionId === activeWindow?.conditionId);
+  if (hasOpenInWindow) {
+    return;
+  }
+
+  const sharesToBuy = config.shares || 10;
+  const highThreshold = config.highThreshold || 0.75;
+  const lowThreshold = config.lowThreshold || 0.20;
+
+  // Determine if an arbitrage pair opportunity has appeared:
+  // Leg A: UP >= highThreshold (capped at 82¢ max) and DOWN <= lowThreshold + 0.06
+  // Leg B: DOWN >= highThreshold (capped at 82¢ max) and UP <= lowThreshold + 0.06
+  let primarySide: 'UP' | 'DOWN' | null = null;
+  if (upPrice >= highThreshold && upPrice <= 0.82 && downPrice <= (lowThreshold + 0.06)) {
+    primarySide = 'UP';
+  } else if (downPrice >= highThreshold && downPrice <= 0.82 && upPrice <= (lowThreshold + 0.06)) {
+    primarySide = 'DOWN';
+  }
+
+  if (primarySide) {
+    const triggerAsset = primarySide === 'UP' ? upAsset : downAsset;
+    if (!pairCrossedThresholdTime[triggerAsset]) pairCrossedThresholdTime[triggerAsset] = now;
+    if (now - pairCrossedThresholdTime[triggerAsset] >= 1000) {
+      const upStake = Number((sharesToBuy * upPrice).toFixed(4));
+      const downStake = Number((sharesToBuy * downPrice).toFixed(4));
+      const totalEstimatedCost = upStake + downStake + 0.30;
+
+      if (account.cashBalance < totalEstimatedCost) {
+        console.log(`[${symbol} Pair Strategy] Insufficient cash ($${account.cashBalance.toFixed(2)} < $${totalEstimatedCost.toFixed(2)}) for ${sharesToBuy} share pair`);
+        return;
+      }
+
+      console.log(`[${symbol} Pair Arbitrage Trigger] ${primarySide} >= ${highThreshold * 100}¢. Buying ${sharesToBuy} UP @ $${upPrice.toFixed(2)} ($${upStake.toFixed(2)}) & ${sharesToBuy} DOWN @ $${downPrice.toFixed(2)} ($${downStake.toFixed(2)})`);
+
+      // 1. Buy UP leg
+      const upTrade: PolymarketActivityItem = {
+        proxyWallet: '15m_pair_bot',
+        timestamp: nowSec,
+        conditionId: activeWindow.conditionId,
+        type: 'TRADE',
+        size: sharesToBuy,
+        usdcSize: upStake,
+        transactionHash: `15m_pair_${Date.now()}_${symbol}_up`,
+        price: upPrice,
+        asset: upAsset,
+        side: 'BUY',
+        outcome: 'Up',
+        title: activeWindow.title,
+        slug: windowSlug,
+      };
+      (upTrade as any).oppositeAsset = downAsset;
+      const upRes = executeCopyBuy(account, upTrade, upStake, 75.0, upPrice, DEFAULT_TAKER_FEE_RATE, 'assumed', upBook);
+
+      if (!upRes.error) {
+        // 2. Buy DOWN leg
+        const downTrade: PolymarketActivityItem = {
+          proxyWallet: '15m_pair_bot',
+          timestamp: nowSec,
+          conditionId: activeWindow.conditionId,
+          type: 'TRADE',
+          size: sharesToBuy,
+          usdcSize: downStake,
+          transactionHash: `15m_pair_${Date.now()}_${symbol}_down`,
+          price: downPrice,
+          asset: downAsset,
+          side: 'BUY',
+          outcome: 'Down',
+          title: activeWindow.title,
+          slug: windowSlug,
+        };
+        (downTrade as any).oppositeAsset = upAsset;
+        const downRes = executeCopyBuy(upRes.account, downTrade, downStake, 75.0, downPrice, DEFAULT_TAKER_FEE_RATE, 'assumed', downBook);
+
+        pairAccounts[symbol] = downRes.account;
+        tradedWindows.add(windowSlug);
+        pairCrossedThresholdTime[triggerAsset] = 0;
+        flushState();
+        console.log(`[${symbol} Pair Strategy Executed] Bought ${sharesToBuy} UP shares ($${upStake.toFixed(2)}) + ${sharesToBuy} DOWN shares ($${downStake.toFixed(2)}). Guaranteed $${sharesToBuy}.00 gross payout at expiry.`);
+      }
+      return;
+    }
+  } else {
+    pairCrossedThresholdTime[upAsset] = 0;
+    pairCrossedThresholdTime[downAsset] = 0;
+  }
+}
+
+
 
 async function sendTelegramMessage(text: string): Promise<{ ok: boolean; description?: string }> {
   if (!config.isTelegramAlertsEnabled || !telegramBotToken || !telegramChatId) {
@@ -2021,6 +2219,9 @@ setInterval(async () => {
     const momentumMetrics: Record<string, PortfolioMetrics> = {
       'BTC': calculatePortfolioMetrics(momentumAccounts['BTC'], livePrices),
     };
+    const pairMetrics: Record<string, PortfolioMetrics> = {
+      'BTC': calculatePortfolioMetrics(pairAccounts['BTC'], livePrices),
+    };
 
     broadcastSSE({
       type: 'window_update',
@@ -2032,6 +2233,9 @@ setInterval(async () => {
       momentumAccounts,
       momentumConfigs,
       momentumMetrics,
+      pairAccounts,
+      pairConfigs,
+      pairMetrics,
     });
   } catch {}
 }, 2000);
@@ -2148,6 +2352,9 @@ app.get('/api/stream', (req, res) => {
   const momentumMetrics: Record<string, PortfolioMetrics> = {
     'BTC': calculatePortfolioMetrics(momentumAccounts['BTC'], livePrices),
   };
+  const pairMetrics: Record<string, PortfolioMetrics> = {
+    'BTC': calculatePortfolioMetrics(pairAccounts['BTC'], livePrices),
+  };
 
   res.write(
     `data: ${JSON.stringify({
@@ -2163,6 +2370,9 @@ app.get('/api/stream', (req, res) => {
       momentumAccounts,
       momentumConfigs,
       momentumMetrics,
+      pairAccounts,
+      pairConfigs,
+      pairMetrics,
     })}\n\n`
   );
 
@@ -2240,6 +2450,79 @@ app.post('/api/momentum/:symbol/close-position', (req, res) => {
     metrics: calculatePortfolioMetrics(momentumAccounts[symbol], livePrices),
   });
   res.json({ ok: true, account: momentumAccounts[symbol] });
+});
+
+// --- 75¢ / 20¢ Pair Strategy Endpoints ---
+
+app.get('/api/pair-strategy', (req, res) => {
+  const pairMetrics: Record<string, PortfolioMetrics> = {
+    'BTC': calculatePortfolioMetrics(pairAccounts['BTC'], livePrices),
+  };
+  res.json({
+    ok: true,
+    activeMomentumWindows,
+    pairAccounts,
+    pairConfigs,
+    pairMetrics,
+    marketBooks,
+  });
+});
+
+app.post('/api/pair-strategy/:symbol/toggle', (req, res) => {
+  const symbol = req.params.symbol.toUpperCase();
+  if (!pairConfigs[symbol]) return res.status(404).json({ ok: false, error: 'Symbol not found' });
+  pairConfigs[symbol].isEnabled = !pairConfigs[symbol].isEnabled;
+  flushState();
+  broadcastSSE({
+    type: 'pair_config_update',
+    symbol,
+    config: pairConfigs[symbol],
+  });
+  res.json({ ok: true, isEnabled: pairConfigs[symbol].isEnabled, config: pairConfigs[symbol] });
+});
+
+app.post('/api/pair-strategy/:symbol/reset', (req, res) => {
+  const symbol = req.params.symbol.toUpperCase();
+  if (symbol !== 'BTC' || !pairAccounts[symbol]) return res.status(404).json({ ok: false, error: 'Symbol not found' });
+  pairAccounts[symbol] = createInitialAccount(100.0);
+  pairAccounts[symbol].currentStakeSize = 10.0;
+  pairTradedWindows[symbol].clear();
+  flushState();
+  broadcastSSE({
+    type: 'pair_account_update',
+    symbol,
+    account: pairAccounts[symbol],
+    metrics: calculatePortfolioMetrics(pairAccounts[symbol], livePrices),
+  });
+  res.json({ ok: true, account: pairAccounts[symbol] });
+});
+
+app.post('/api/pair-strategy/:symbol/close-position', (req, res) => {
+  const symbol = req.params.symbol.toUpperCase();
+  const { positionId } = req.body;
+  if (!pairAccounts[symbol]) return res.status(404).json({ ok: false, error: 'Symbol not found' });
+  if (!positionId || !pairAccounts[symbol].positions[positionId]) {
+    return res.status(404).json({ ok: false, error: 'Position not found' });
+  }
+
+  const account = pairAccounts[symbol];
+  const pos = account.positions[positionId];
+  const book = marketBooks[pos.asset];
+  const livePrice = book?.bestBid || book?.lastPrice || livePrices[pos.asset] || pos.currentPrice;
+  const result = executeInternalSell(account, positionId, 1.0, 'MANUAL_CLOSE', livePrice, DEFAULT_TAKER_FEE_RATE, 'assumed', book);
+  if (result.error) {
+    return res.status(400).json({ ok: false, error: result.error });
+  }
+
+  pairAccounts[symbol] = result.account;
+  flushState();
+  broadcastSSE({
+    type: 'pair_account_update',
+    symbol,
+    account: pairAccounts[symbol],
+    metrics: calculatePortfolioMetrics(pairAccounts[symbol], livePrices),
+  });
+  res.json({ ok: true, account: pairAccounts[symbol] });
 });
 
 app.post('/api/paper/reset', async (req, res) => {
