@@ -664,40 +664,96 @@ export const MomentumPanel: React.FC<MomentumPanelProps> = ({
       </div>
 
       {/* Active Strategy & Changelog Panel */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 backdrop-blur-md shadow-xl space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-amber-400" />
-            Active Bot Rules & Recent Changelog
-          </h3>
-          <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono">
-            V2.7 Production Live
+      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 backdrop-blur-md shadow-xl space-y-6">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div>
+            <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              Active Bot Rules & Recent Changelog
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">Live strategy rules, risk parameters, and recent updates deployed to the bot.</p>
+          </div>
+          <span className="text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono font-bold">
+            V2.8 Production Live
           </span>
         </div>
+
+        {/* 4 Active Core Rule Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-          <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-1.5">
             <div className="font-bold text-amber-400 flex items-center gap-1.5">
-              <span>🎯</span> 75¢ Breakout Entry Rule
+              <span>🎯</span> 75¢ Entry Breakout (Max 82¢)
             </div>
-            <p className="text-slate-400">Strictly requires price to cross & hold at <strong>≥75¢</strong> for 3.5s before entry.</p>
+            <p className="text-slate-400">Triggers when Up or Down crosses & holds at <strong>≥75¢</strong>. Hard ceiling at <strong>82¢</strong> to strictly prevent late buying at 85¢.</p>
           </div>
-          <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-1.5">
             <div className="font-bold text-blue-400 flex items-center gap-1.5">
-              <span>🛡️</span> $1 Opposite Hedge Rule
+              <span>🛡️</span> $1.00 Opposite Hedge Rule
             </div>
-            <p className="text-slate-400">Automatically buys <strong>$1.00</strong> on the opposite contract every time a trade is entered.</p>
+            <p className="text-slate-400">On every $10 entry, automatically buys <strong>$1.00</strong> on the opposite side as a built-in hedge.</p>
           </div>
-          <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-1.5">
             <div className="font-bold text-rose-400 flex items-center gap-1.5">
-              <span>🛡️</span> 60¢ Stop-Loss & Exits
+              <span>🛡️</span> 60¢ Stop-Loss & Stepped Exits
             </div>
-            <p className="text-slate-400">Triggers at <strong>60¢</strong> using real CLOB order book stepped limit fills.</p>
+            <p className="text-slate-400">Triggers at <strong>60¢</strong> using real CLOB order book stepped limit execution.</p>
           </div>
-          <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-1.5">
             <div className="font-bold text-emerald-400 flex items-center gap-1.5">
-              <span>🎯</span> 97¢ Take-Profit
+              <span>🎯</span> 97¢ Take-Profit & Binary Expiry
             </div>
-            <p className="text-slate-400">Locks in profits at <strong>97¢</strong> to eliminate settlement reversal risk.</p>
+            <p className="text-slate-400">Locks in gains early at <strong>97¢</strong>. At expiry, winner settles at <strong>$1.00</strong> and loser at <strong>$0.00</strong>.</p>
+          </div>
+        </div>
+
+        {/* Detailed Version Changelog Table */}
+        <div className="space-y-3 pt-2">
+          <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+            <span>📋</span> Change History & Deployed Updates
+          </h4>
+          <div className="divide-y divide-slate-800/60 bg-slate-950/40 rounded-xl border border-slate-800/60 text-xs">
+            <div className="p-3.5 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-emerald-400 flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono">V2.8</span>
+                  Mutual Exclusion Binary Settlement & Prompt 75¢ Entry
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono">Latest Update</span>
+              </div>
+              <ul className="text-slate-400 space-y-1 list-disc list-inside text-[11px] pl-1">
+                <li><strong>Fixed Binary Resolution Double-Profit Bug:</strong> Enforced strict mutual exclusion at window expiration. One outcome resolves to $1.00 (win) and the opposite resolves to $0.00 (loss). Both outcomes can never show profit simultaneously.</li>
+                <li><strong>Fixed 85¢ Buying Delay:</strong> Lowered order book depth requirement to 1x stake ($10) and hold time to 1.0s, and capped entry price between 75¢ and 82¢ to strictly prevent entering late at 85¢.</li>
+              </ul>
+            </div>
+
+            <div className="p-3.5 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-amber-400 flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] font-mono">V2.7</span>
+                  75¢ Breakout & Mandatory $1 Hedge Rule
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono">Previous Update</span>
+              </div>
+              <ul className="text-slate-400 space-y-1 list-disc list-inside text-[11px] pl-1">
+                <li>Adjusted primary momentum entry trigger threshold to 75¢.</li>
+                <li>Implemented automatic $1.00 opposite-side contract hedge on every $10 trade entry.</li>
+                <li>Pinned Tailwind CSS dependencies to 4.3.3 to guarantee clean VPS builds.</li>
+              </ul>
+            </div>
+
+            <div className="p-3.5 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-cyan-400 flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-mono">V2.6</span>
+                  Price Stabilization & 15m Window Discovery
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono">Initial Stabilization</span>
+              </div>
+              <ul className="text-slate-400 space-y-1 list-disc list-inside text-[11px] pl-1">
+                <li>Removed complementary price inversion and polling price overwrites, eliminating 65¢ $\leftrightarrow$ 11¢ price snapping.</li>
+                <li>Added automatic keyword fallback for 15-minute Bitcoin window discovery.</li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>

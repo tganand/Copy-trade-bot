@@ -788,26 +788,57 @@ export function autoClosePastWindowPositions(
 
   const currentTimeSec = Math.floor(Date.now() / 1000);
 
-  for (const [key, pos] of Object.entries(updatedAccount.positions)) {
+  // 1. Filter all positions that have expired
+  const expiredEntries = Object.entries(updatedAccount.positions).filter(([key, pos]) => {
     const posWindowTs = getWindowTimestamp(pos.slug, pos.openedAt);
     const windowDuration = pos.slug?.includes('15m') ? 900 : 300;
     const windowEndTs = posWindowTs > 0 ? posWindowTs + windowDuration : pos.openedAt + windowDuration;
+    return (latestWindowTs > 0 && posWindowTs > 0 && latestWindowTs > posWindowTs) || (currentTimeSec > windowEndTs);
+  });
 
-    const isPastWindow =
-      (latestWindowTs > 0 && posWindowTs > 0 && latestWindowTs > posWindowTs) ||
-      (currentTimeSec > windowEndTs);
+  if (expiredEntries.length === 0) return updatedAccount;
 
-    if (isPastWindow) {
-      // In Polymarket binary markets:
-      // The winning contract resolves to EXACTLY $1.00 (100¢).
-      // The losing contract resolves to EXACTLY $0.00 (0¢) with total loss of stake.
-      const rawPrice = livePrices[key] ?? livePrices[pos.asset] ?? pos.currentPrice;
-      const isWinner = rawPrice >= 0.50;
+  // 2. Group expired positions by window so Up and Down in the same window resolve mutually exclusively
+  const windowGroups: Record<string, Array<{ key: string; pos: PaperPosition }>> = {};
+  for (const [key, pos] of expiredEntries) {
+    const winKey = pos.slug || `${pos.conditionId}_${getWindowTimestamp(pos.slug, pos.openedAt)}`;
+    if (!windowGroups[winKey]) windowGroups[winKey] = [];
+    windowGroups[winKey].push({ key, pos });
+  }
+
+  // 3. Resolve each window: exactly ONE outcome wins ($1.00), the other MUST lose ($0.00)
+  for (const [winKey, group] of Object.entries(windowGroups)) {
+    let winningOutcome: string = '';
+
+    if (group.length > 1) {
+      // Both Up and Down positions exist for this window! Compare their live prices:
+      let highestPrice = -1;
+      for (const item of group) {
+        const p = livePrices[item.key] ?? livePrices[item.pos.asset] ?? item.pos.currentPrice;
+        if (p > highestPrice) {
+          highestPrice = p;
+          winningOutcome = item.pos.outcome.toUpperCase();
+        }
+      }
+    } else {
+      // Single position: wins if price >= 0.50
+      const item = group[0];
+      const p = livePrices[item.key] ?? livePrices[item.pos.asset] ?? item.pos.currentPrice;
+      if (p >= 0.50) {
+        winningOutcome = item.pos.outcome.toUpperCase();
+      } else {
+        winningOutcome = item.pos.outcome.toUpperCase() === 'UP' ? 'DOWN' : 'UP';
+      }
+    }
+
+    // Settle each position: Winner gets $1.00, Loser gets $0.00 (ZERO proceeds, -100% loss)
+    for (const item of group) {
+      const { key, pos } = item;
+      const isWinner = pos.outcome.toUpperCase() === winningOutcome;
       const settlementPrice = isWinner ? 1.0 : 0.0;
-      const proceeds = Number((pos.shares * settlementPrice).toFixed(4));
+      const proceeds = isWinner ? Number((pos.shares * 1.0).toFixed(4)) : 0.0;
       const baseCostOfSoldShares = pos.totalCost - (pos.buyFeePaid || 0);
       const buyFeeAllocated = pos.buyFeePaid || 0;
-      const sellFeeUsdc = 0; // Held to expiry: no sell fee
 
       const grossPnl = Number((proceeds - baseCostOfSoldShares).toFixed(4));
       const netPnl = Number((proceeds - pos.totalCost).toFixed(4));
@@ -840,7 +871,7 @@ export function autoClosePastWindowPositions(
         copyShares: pos.shares,
         capitalRecoveredUsdc: Number((isWinner ? baseCostOfSoldShares : 0).toFixed(4)),
         grossProceedsUsdc: proceeds,
-        netProceedsUsdc: proceeds, // Zero sell fee on expiry
+        netProceedsUsdc: proceeds,
         realizedProfitUsdc: netPnl,
         sharesHeldAfterTrade: 0,
         remainingCostBasisUsdc: 0,
@@ -858,7 +889,7 @@ export function autoClosePastWindowPositions(
         feeSource: 'market',
       });
 
-      console.log(`[Auto-Close Past Window] Closed position "${pos.title}" (${pos.outcome}) at $${settlementPrice.toFixed(2)}. Realized Net PnL: $${netPnl.toFixed(2)}`);
+      console.log(`[Auto-Close Past Window] Closed position "${pos.title}" (${pos.outcome}) at $${settlementPrice.toFixed(2)}. ${isWinner ? 'WINNER' : 'LOSER'} Realized Net PnL: $${netPnl.toFixed(2)}`);
     }
   }
 
