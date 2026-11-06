@@ -458,7 +458,7 @@ export default function App() {
             <span>Bitcoin (BTC) 15m Momentum Trading Strategy</span>
           </div>
           <div>
-            Bankroll: <b>$100.00</b> · Stake: <b>$10.00/trade</b> · Breakout Rule: <b>≥85¢ Entry</b> · Target: <b>100¢ ($1.00)</b> · Stop-Loss: <b>55¢</b>
+            Bankroll: <b>$100.00</b> · Stake: <b>$10.00/trade</b> · Breakout Rule: <b>≥75¢ Entry + $1 Hedge</b> · Target: <b>100¢ ($1.00)</b> · Stop-Loss: <b>60¢</b>
           </div>
         </div>
       </footer>

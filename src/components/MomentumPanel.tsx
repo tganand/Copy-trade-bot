@@ -671,35 +671,33 @@ export const MomentumPanel: React.FC<MomentumPanelProps> = ({
             Active Bot Rules & Recent Changelog
           </h3>
           <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono">
-            V2.6 Production Live
+            V2.7 Production Live
           </span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
           <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
             <div className="font-bold text-amber-400 flex items-center gap-1.5">
-              <span>🎯</span> Breakout Entry Rule
+              <span>🎯</span> 75¢ Breakout Entry Rule
             </div>
-            <p className="text-slate-400">Strictly requires price to cross & hold at <strong>≥85¢</strong> for 3.5s before entry.</p>
+            <p className="text-slate-400">Strictly requires price to cross & hold at <strong>≥75¢</strong> for 3.5s before entry.</p>
+          </div>
+          <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+            <div className="font-bold text-blue-400 flex items-center gap-1.5">
+              <span>🛡️</span> $1 Opposite Hedge Rule
+            </div>
+            <p className="text-slate-400">Automatically buys <strong>$1.00</strong> on the opposite contract every time a trade is entered.</p>
           </div>
           <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
             <div className="font-bold text-rose-400 flex items-center gap-1.5">
-              <span>🛡️</span> 60¢ Stop-Loss & Stepped Exits
+              <span>🛡️</span> 60¢ Stop-Loss & Exits
             </div>
-            <p className="text-slate-400">Triggers at <strong>60¢</strong> using real CLOB order book stepped limit fills (no fake overrides, no 1¢ drop traps).</p>
+            <p className="text-slate-400">Triggers at <strong>60¢</strong> using real CLOB order book stepped limit fills.</p>
           </div>
           <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
             <div className="font-bold text-emerald-400 flex items-center gap-1.5">
-              <span>🎯</span> 97¢ Early Take-Profit
+              <span>🎯</span> 97¢ Take-Profit
             </div>
-            <p className="text-slate-400">Locks in profits at <strong>97¢</strong> to eliminate last-second settlement reversal risk.</p>
-          </div>
-
-
-          <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
-            <div className="font-bold text-teal-400 flex items-center gap-1.5">
-              <span>🌊</span> Liquidity & EMA Smoothing
-            </div>
-            <p className="text-slate-400">Requires ≥3x stake depth ($30) and applies EMA smoothing to eliminate 10¢ price jitter.</p>
+            <p className="text-slate-400">Locks in profits at <strong>97¢</strong> to eliminate settlement reversal risk.</p>
           </div>
         </div>
       </div>
