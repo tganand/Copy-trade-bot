@@ -1,0 +1,346 @@
+anand123@897cf8530ff6:~$ # 1. Pull the updated code from your git repository (or scp the updated server.ts & src/):
+git pull
+
+# 2. Build the app
+npm run build
+
+# 3. Restart PM2 process
+pm2 restart all --update-env
+
+# 4. Check the logs to ensure the 100ms loop is running cleanly:
+pm2 logs --lines 30
+fatal: not a git repository (or any of the parent directories): .git
+npm error code ENOENT
+npm error syscall open
+npm error path /root/package.json
+npm error errno -2
+npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open '/root/package.json'
+npm error enoent This is related to npm not being able to find a file.
+npm error enoent
+npm error A complete log of this run can be found in: /root/.npm/_logs/2026-11-05T16_23_14_122Z-debug-0.log
+[PM2] Applying action restartProcessId on app [all](ids: [ 1, 2 ])
+[PM2] [dashboard-url](1) ✓
+[PM2] [poly-bot](2) ✓
+┌────┬──────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name             │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼──────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 1  │ dashboard-url    │ default     │ N/A     │ fork    │ 42368    │ 0s     │ 1    │ online    │ 0%       │ 34.1mb   │ root     │ disabled │
+│ 2  │ poly-bot         │ default     │ N/A     │ fork    │ 42374    │ 0s     │ 14   │ online    │ 0%       │ 10.8mb   │ root     │ disabled │
+└────┴──────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 14.2% | ram usage: 63.7% | railnet0: ⇓ 727kb/s ⇑ 3mb/s | disk: ⇓ 3.3mb/s ⇑ 30.5mb/s
+[TAILING] Tailing last 30 lines for [all] processes (change the value with --lines option)
+/root/.pm2/pm2.log last 30 lines:
+PM2        | 2026-11-05T15:21:48: PM2 log: App [poly-bot:2] online
+PM2        | 2026-11-05T16:15:26: PM2 log: App [poly-bot:2] exited with code [137] via signal [SIGINT]
+PM2        | 2026-11-05T16:15:26: PM2 log: App [poly-bot:2] starting in -fork mode-
+PM2        | 2026-11-05T16:15:26: PM2 log: App [poly-bot:2] online
+PM2        | 2026-11-05T16:23:14: PM2 log: Stopping app:dashboard-url id:1
+PM2        | 2026-11-05T16:23:14: PM2 log: pid=23884 msg=failed to kill - retrying in 100ms
+PM2        | 2026-11-05T16:23:14: PM2 log: pid=23884 msg=failed to kill - retrying in 100ms
+PM2        | 2026-11-05T16:23:14: PM2 log: pid=23884 msg=failed to kill - retrying in 100ms
+PM2        | 2026-11-05T16:23:14: PM2 log: pid=23884 msg=failed to kill - retrying in 100ms
+PM2        | 2026-11-05T16:23:15: PM2 log: pid=23884 msg=failed to kill - retrying in 100ms
+PM2        | 2026-11-05T16:23:15: PM2 log: pid=23884 msg=failed to kill - retrying in 100ms
+PM2        | 2026-11-05T16:23:15: PM2 log: pid=23884 msg=failed to kill - retrying in 100ms
+PM2        | 2026-11-05T16:23:15: PM2 log: pid=23884 msg=failed to kill - retrying in 100ms
+PM2        | 2026-11-05T16:23:15: PM2 log: pid=23884 msg=failed to kill - retrying in 100ms
+PM2        | 2026-11-05T16:23:15: PM2 log: pid=23884 msg=failed to kill - retrying in 100ms
+PM2        | 2026-11-05T16:23:15: PM2 log: pid=23884 msg=failed to kill - retrying in 100ms
+PM2        | 2026-11-05T16:23:15: PM2 log: pid=23884 msg=failed to kill - retrying in 100ms
+PM2        | 2026-11-05T16:23:15: PM2 log: pid=23884 msg=failed to kill - retrying in 100ms
+PM2        | 2026-11-05T16:23:15: PM2 log: pid=23884 msg=failed to kill - retrying in 100ms
+PM2        | 2026-11-05T16:23:16: PM2 log: pid=23884 msg=failed to kill - retrying in 100ms
+PM2        | 2026-11-05T16:23:16: PM2 log: Process with pid 23884 still alive after 1600ms, sending SIGKILL to 1 remaining pids...
+PM2        | 2026-11-05T16:23:16: PM2 log: App [dashboard-url:1] exited with code [0] via signal [SIGKILL]
+PM2        | 2026-11-05T16:23:16: PM2 log: pid=23884 msg=process tree killed (1 pids)
+PM2        | 2026-11-05T16:23:16: PM2 log: App [dashboard-url:1] starting in -fork mode-
+PM2        | 2026-11-05T16:23:16: PM2 log: App [dashboard-url:1] online
+PM2        | 2026-11-05T16:23:16: PM2 log: Stopping app:poly-bot id:2
+PM2        | 2026-11-05T16:23:16: PM2 log: App [poly-bot:2] exited with code [0] via signal [SIGINT]
+PM2        | 2026-11-05T16:23:16: PM2 log: pid=42168 msg=process tree killed (5 pids)
+PM2        | 2026-11-05T16:23:16: PM2 log: App [poly-bot:2] starting in -fork mode-
+PM2        | 2026-11-05T16:23:16: PM2 log: App [poly-bot:2] online
+
+/root/.pm2/logs/dashboard-url-out.log last 30 lines:
+/root/.pm2/logs/poly-bot-error.log last 30 lines:
+2|poly-bot |  9: 0x10b8304 v8::internal::FactoryBase<v8::internal::Factory>::AllocateRawWithImmortalMap(int, v8::internal::AllocationType, v8::internal::Map, v8::internal::AllocationAlignment) [/usr/bin/node]
+2|poly-bot | 10: 0x10baae6 v8::internal::FactoryBase<v8::internal::Factory>::NewRawOneByteString(int, v8::internal::AllocationType) [/usr/bin/node]
+2|poly-bot | 11: 0x140cd17 v8::internal::String::SlowFlatten(v8::internal::Isolate*, v8::internal::Handle<v8::internal::ConsString>, v8::internal::AllocationType) [/usr/bin/node]
+2|poly-bot | 12: 0xef727d v8::String::Utf8Length(v8::Isolate*) const [/usr/bin/node]
+2|poly-bot | 13: 0xc7d182  [/usr/bin/node]
+2|poly-bot | 14: 0x18d1546  [/usr/bin/node]
+2|poly-bot | [Telegram] Telegram secrets (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID) missing. Telegram alerts disabled.
+2|poly-bot | (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+2|poly-bot |   - `__dirname` (vite.config.ts:11:27). Use `import.meta.dirname` instead
+2|poly-bot | Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+2|poly-bot | [Telegram] Telegram secrets (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID) missing. Telegram alerts disabled.
+2|poly-bot | (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+2|poly-bot |   - `__dirname` (vite.config.ts:11:27). Use `import.meta.dirname` instead
+2|poly-bot | Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+2|poly-bot | [Telegram] Telegram secrets (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID) missing. Telegram alerts disabled.
+2|poly-bot | (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+2|poly-bot |   - `__dirname` (vite.config.ts:11:27). Use `import.meta.dirname` instead
+2|poly-bot | Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+2|poly-bot | [Telegram] Telegram secrets (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID) missing. Telegram alerts disabled.
+2|poly-bot | (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+2|poly-bot |   - `__dirname` (vite.config.ts:11:27). Use `import.meta.dirname` instead
+2|poly-bot | Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+2|poly-bot | [Telegram] Telegram secrets (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID) missing. Telegram alerts disabled.
+2|poly-bot | (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+2|poly-bot |   - `__dirname` (vite.config.ts:11:27). Use `import.meta.dirname` instead
+2|poly-bot | Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+2|poly-bot | [Telegram] Telegram secrets (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID) missing. Telegram alerts disabled.
+2|poly-bot | (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+2|poly-bot |   - `__dirname` (vite.config.ts:11:27). Use `import.meta.dirname` instead
+2|poly-bot | Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+/root/.pm2/logs/dashboard-url-error.log last 30 lines:
+1|dashboar | 2026-11-05T15:53:05Z ERR  error="stream 29301 canceled by remote with error code 0" connIndex=0 event=1 ingressRule=0 originService=http://localhost:3000
+1|dashboar | 2026-11-05T15:53:05Z ERR Request failed error="stream 29301 canceled by remote with error code 0" connIndex=0 dest=https://transport-expertise-firewire-chronicle.trycloudflare.com/api/stream event=0 ip=198.41.192.7 type=http
+1|dashboar | 2026-11-05T15:53:11Z ERR  error="stream 29365 canceled by remote with error code 0" connIndex=0 event=1 ingressRule=0 originService=http://localhost:3000
+1|dashboar | 2026-11-05T15:53:11Z ERR Request failed error="stream 29365 canceled by remote with error code 0" connIndex=0 dest=https://transport-expertise-firewire-chronicle.trycloudflare.com/api/stream event=0 ip=198.41.192.7 type=http
+1|dashboar | 2026-11-05T16:08:06Z ERR  error="stream 29401 canceled by remote with error code 0" connIndex=0 event=1 ingressRule=0 originService=http://localhost:3000
+1|dashboar | 2026-11-05T16:08:06Z ERR Request failed error="stream 29401 canceled by remote with error code 0" connIndex=0 dest=https://transport-expertise-firewire-chronicle.trycloudflare.com/api/stream event=0 ip=198.41.192.7 type=http
+1|dashboar | 2026-11-05T16:08:45Z ERR  error="stream 29465 canceled by remote with error code 0" connIndex=0 event=1 ingressRule=0 originService=http://localhost:3000
+1|dashboar | 2026-11-05T16:08:45Z ERR Request failed error="stream 29465 canceled by remote with error code 0" connIndex=0 dest=https://transport-expertise-firewire-chronicle.trycloudflare.com/api/stream event=0 ip=198.41.192.7 type=http
+1|dashboar | 2026-11-05T16:13:13Z ERR  error="stream 29617 canceled by remote with error code 0" connIndex=0 event=1 ingressRule=0 originService=http://localhost:3000
+1|dashboar | 2026-11-05T16:13:13Z ERR Request failed error="stream 29617 canceled by remote with error code 0" connIndex=0 dest=https://transport-expertise-firewire-chronicle.trycloudflare.com/api/stream event=0 ip=198.41.192.7 type=http
+1|dashboar | 2026-11-05T16:15:26Z ERR  error="unexpected EOF" connIndex=0 event=1 ingressRule=0 originService=http://localhost:3000
+1|dashboar | 2026-11-05T16:15:26Z ERR Request failed error="unexpected EOF" connIndex=0 dest=https://transport-expertise-firewire-chronicle.trycloudflare.com/api/stream event=0 ip=198.41.192.7 type=http
+1|dashboar | 2026-11-05T16:15:26Z ERR  error="Unable to reach the origin service. The service may be down or it may not be responding to traffic from cloudflared: dial tcp [::1]:3000: connect: connection refused" connIndex=0 event=1 ingressRule=0 originService=http://localhost:3000
+1|dashboar | 2026-11-05T16:15:26Z ERR Request failed error="Unable to reach the origin service. The service may be down or it may not be responding to traffic from cloudflared: dial tcp [::1]:3000: connect: connection refused" connIndex=0 dest=https://transport-expertise-firewire-chronicle.trycloudflare.com/api/status event=0 ip=198.41.192.7 type=http
+1|dashboar | 2026-11-05T16:15:26Z ERR  error="Unable to reach the origin service. The service may be down or it may not be responding to traffic from cloudflared: dial tcp [::1]:3000: connect: connection refused" connIndex=0 event=1 ingressRule=0 originService=http://localhost:3000
+1|dashboar | 2026-11-05T16:15:26Z ERR Request failed error="Unable to reach the origin service. The service may be down or it may not be responding to traffic from cloudflared: dial tcp [::1]:3000: connect: connection refused" connIndex=0 dest=https://transport-expertise-firewire-chronicle.trycloudflare.com/api/momentum event=0 ip=198.41.192.7 type=http
+1|dashboar | 2026-11-05T16:15:27Z ERR  error="Unable to reach the origin service. The service may be down or it may not be responding to traffic from cloudflared: dial tcp [::1]:3000: connect: connection refused" connIndex=0 event=1 ingressRule=0 originService=http://localhost:3000
+1|dashboar | 2026-11-05T16:15:27Z ERR Request failed error="Unable to reach the origin service. The service may be down or it may not be responding to traffic from cloudflared: dial tcp [::1]:3000: connect: connection refused" connIndex=0 dest=https://transport-expertise-firewire-chronicle.trycloudflare.com/api/status event=0 ip=198.41.192.7 type=http
+1|dashboar | 2026-11-05T16:15:27Z ERR  error="Unable to reach the origin service. The service may be down or it may not be responding to traffic from cloudflared: dial tcp [::1]:3000: connect: connection refused" connIndex=0 event=1 ingressRule=0 originService=http://localhost:3000
+1|dashboar | 2026-11-05T16:15:27Z ERR Request failed error="Unable to reach the origin service. The service may be down or it may not be responding to traffic from cloudflared: dial tcp [::1]:3000: connect: connection refused" connIndex=0 dest=https://transport-expertise-firewire-chronicle.trycloudflare.com/api/momentum event=0 ip=198.41.192.7 type=http
+1|dashboar | 2026-11-05T16:15:34Z ERR  error="unexpected EOF" connIndex=0 event=1 ingressRule=0 originService=http://localhost:3000
+1|dashboar | 2026-11-05T16:15:34Z ERR Request failed error="unexpected EOF" connIndex=0 dest=https://transport-expertise-firewire-chronicle.trycloudflare.com/api/stream event=0 ip=198.41.192.7 type=http
+1|dashboar | 2026-11-05T16:16:28Z ERR  error="stream 30349 canceled by remote with error code 0" connIndex=0 event=1 ingressRule=0 originService=http://localhost:3000
+1|dashboar | 2026-11-05T16:16:28Z ERR Request failed error="stream 30349 canceled by remote with error code 0" connIndex=0 dest=https://transport-expertise-firewire-chronicle.trycloudflare.com/api/stream event=0 ip=198.41.192.7 type=http
+1|dashboar | 2026-11-05T16:18:26Z ERR  error="stream 30289 canceled by remote with error code 0" connIndex=0 event=1 ingressRule=0 originService=http://localhost:3000
+1|dashboar | 2026-11-05T16:18:26Z ERR Request failed error="stream 30289 canceled by remote with error code 0" connIndex=0 dest=https://transport-expertise-firewire-chronicle.trycloudflare.com/api/stream event=0 ip=198.41.192.7 type=http
+1|dashboar | 2026-11-05T16:23:14Z INF Initiating graceful shutdown due to signal interrupt ...
+1|dashboar | 2026-11-05T16:23:14Z INF Unregistered tunnel connection connIndex=0 event=0 ip=198.41.192.7
+1|dashboar | 2026-11-05T16:23:16Z INF Thank you for trying Cloudflare Tunnel. Doing so, without a Cloudflare account, is a quick way to experiment and try it out. However, be aware that these account-less Tunnels have no uptime guarantee, are subject to the Cloudflare Online Services Terms of Use (https://www.cloudflare.com/website-terms/), and Cloudflare reserves the right to investigate your use of Tunnels for violations of such terms. If you intend to use Tunnels in production you should use a pre-created named tunnel by following: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps
+1|dashboar | 2026-11-05T16:23:16Z INF Requesting new quick Tunnel on trycloudflare.com...
+
+/root/.pm2/logs/poly-bot-out.log last 30 lines:
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.03, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.03, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.02, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.02, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot | 
+2|poly-bot | > react-example@0.0.0 start
+2|poly-bot | > tsx server.ts
+2|poly-bot | 
+
+2|poly-bot  | ◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+2|poly-bot  | [Telegram] Telegram secrets (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID) missing. Telegram alerts disabled.
+2|poly-bot  | (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+2|poly-bot  |   - `__dirname` (vite.config.ts:11:27). Use `import.meta.dirname` instead
+2|poly-bot  | Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+2|poly-bot  | 🚀 Polymarket Copy-Trading Bot running on http://0.0.0.0:3000
+2|poly-bot  | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot  | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot  | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot  | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot  | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+1|dashboard-url  | 2026-11-05T16:23:20Z INF +--------------------------------------------------------------------------------------------+
+1|dashboard-url  | 2026-11-05T16:23:20Z INF |  Your quick Tunnel has been created! Visit it at (it may take some time to be reachable):  |
+1|dashboard-url  | 2026-11-05T16:23:20Z INF |  https://viewers-donna-uses-rev.trycloudflare.com                                          |
+1|dashboard-url  | 2026-11-05T16:23:20Z INF +--------------------------------------------------------------------------------------------+
+1|dashboard-url  | 2026-11-05T16:23:20Z INF Cannot determine default configuration path. No file [config.yml config.yaml] in [~/.cloudflared ~/.cloudflare-warp ~/cloudflare-warp /etc/cloudflared /usr/local/etc/cloudflared]
+1|dashboard-url  | 2026-11-05T16:23:20Z INF Version 2026.10.7 (Checksum 1f99fb518b83dec2ba8d870a7cc991d82a77e6196295a3d2754ba17ab9f91872)
+1|dashboard-url  | 2026-11-05T16:23:20Z INF GOOS: linux, GOVersion: go1.27.3, GoArch: amd64
+1|dashboard-url  | 2026-11-05T16:23:20Z INF Settings: map[ha-connections:1 protocol:quic url:http://localhost:3000]
+1|dashboard-url  | 2026-11-05T16:23:20Z INF Autoupdate frequency is set autoupdateFreq=86400000
+1|dashboard-url  | 2026-11-05T16:23:20Z INF Generated Connector ID: ff2c842f-a667-46ee-a58a-e3b50e7f6a08
+1|dashboard-url  | 2026-11-05T16:23:20Z INF Initial protocol quic
+1|dashboard-url  | 2026-11-05T16:23:20Z INF ICMP proxy will use 10.255.98.73 as source for IPv4
+1|dashboard-url  | 2026-11-05T16:23:20Z INF ICMP proxy will use fd12:8d1c:e9b3:1:c000:9e:4a7f:6249 in zone railnet0 as source for IPv6
+1|dashboard-url  | 2026-11-05T16:23:20Z INF ICMP proxy will use 10.255.98.73 as source for IPv4
+1|dashboard-url  | 2026-11-05T16:23:20Z INF ICMP proxy will use fd12:8d1c:e9b3:1:c000:9e:4a7f:6249 in zone railnet0 as source for IPv6
+1|dashboard-url  | 2026-11-05T16:23:20Z INF Starting metrics server on 127.0.0.1:20241/metrics
+1|dashboard-url  | 2026-11-05T16:23:20Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.192.107
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+1|dashboard-url  | 2026-11-05T16:23:21Z INF Registered tunnel connection connIndex=0 connection=d8024094-f6ab-45f8-a4cb-4ece07e2e4fc event=0 ip=198.41.192.107 location=sin19 protocol=quic
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.03, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.03, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.03, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.03, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.03, OppLast: 0.99, Gamma: 0.875)
+1|dashboard-url  | 2026-11-05T16:23:26Z INF +-------------------------------------------------------------------------------------+
+1|dashboard-url  | 2026-11-05T16:23:26Z INF |                               CONNECTIVITY PRE-CHECKS                               |
+1|dashboard-url  | 2026-11-05T16:23:26Z INF +-------------------------------------------------------------------------------------+
+1|dashboard-url  | 2026-11-05T16:23:26Z INF |  COMPONENT         TARGET                     STATUS  DETAILS                       |
+1|dashboard-url  | 2026-11-05T16:23:26Z INF |  DNS Resolution    region1.v2.argotunnel.com  PASS    DNS Resolved successfully     |
+1|dashboard-url  | 2026-11-05T16:23:26Z INF |  DNS Resolution    region2.v2.argotunnel.com  PASS    DNS Resolved successfully     |
+1|dashboard-url  | 2026-11-05T16:23:26Z INF |  UDP Connectivity  region1.v2.argotunnel.com  PASS    QUIC connection successful    |
+1|dashboard-url  | 2026-11-05T16:23:26Z INF |  UDP Connectivity  region2.v2.argotunnel.com  PASS    QUIC connection successful    |
+1|dashboard-url  | 2026-11-05T16:23:26Z INF |  TCP Connectivity  region1.v2.argotunnel.com  PASS    HTTP/2 connection successful  |
+1|dashboard-url  | 2026-11-05T16:23:26Z INF |  TCP Connectivity  region2.v2.argotunnel.com  PASS    HTTP/2 connection successful  |
+1|dashboard-url  | 2026-11-05T16:23:26Z INF |  Cloudflare API    api.cloudflare.com:443     PASS    API is reachable              |
+1|dashboard-url  | 2026-11-05T16:23:26Z INF |                                                                                     |
+1|dashboard-url  | 2026-11-05T16:23:26Z INF |  SUMMARY: Environment is healthy. cloudflared will use 'quic' as primary protocol.  |
+1|dashboard-url  | 2026-11-05T16:23:26Z INF +-------------------------------------------------------------------------------------+
+1|dashboard-url  | 2026-11-05T16:23:26Z INF precheck component="DNS Resolution" details="DNS Resolved successfully" run_id=52505212-2933-4390-bf95-6915201ec7a9 status=pass target=region1.v2.argotunnel.com
+1|dashboard-url  | 2026-11-05T16:23:26Z INF precheck component="DNS Resolution" details="DNS Resolved successfully" run_id=52505212-2933-4390-bf95-6915201ec7a9 status=pass target=region2.v2.argotunnel.com
+1|dashboard-url  | 2026-11-05T16:23:26Z INF precheck component="UDP Connectivity" details="QUIC connection successful" run_id=52505212-2933-4390-bf95-6915201ec7a9 status=pass target=region1.v2.argotunnel.com
+1|dashboard-url  | 2026-11-05T16:23:26Z INF precheck component="UDP Connectivity" details="QUIC connection successful" run_id=52505212-2933-4390-bf95-6915201ec7a9 status=pass target=region2.v2.argotunnel.com
+1|dashboard-url  | 2026-11-05T16:23:26Z INF precheck component="TCP Connectivity" details="HTTP/2 connection successful" run_id=52505212-2933-4390-bf95-6915201ec7a9 status=pass target=region1.v2.argotunnel.com
+1|dashboard-url  | 2026-11-05T16:23:26Z INF precheck component="TCP Connectivity" details="HTTP/2 connection successful" run_id=52505212-2933-4390-bf95-6915201ec7a9 status=pass target=region2.v2.argotunnel.com
+1|dashboard-url  | 2026-11-05T16:23:26Z INF precheck component="Cloudflare API" details="API is reachable" run_id=52505212-2933-4390-bf95-6915201ec7a9 status=pass target=api.cloudflare.com:443
+1|dashboard-url  | 2026-11-05T16:23:26Z INF precheck complete hard_fail=false run_id=52505212-2933-4390-bf95-6915201ec7a9 suggested_protocol=quic
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.03, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.02, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.02, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.02, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.02, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.02, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.02, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.02, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.02, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.02, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+2|poly-bot       | 🚨 [BTC 15m STOP-LOSS 40¢ TRIGGERED] Bitcoin Up or Down - November 5, 11:15AM-11:30AM ET (Up) @ $0.010 <= $0.40 (Entry: $0.79, OppAsk: 0.01, OppLast: 0.99, Gamma: 0.875)
+2|poly-bot       | [15m Discovery] Querying slug: btc-updown-15m-1793895300
+^C
+anand123@897cf8530ff6:~$ ^C[200~cd ~/Copy-trade-bot && git stash && git pull && git stash pop && npm install && npm run build && pm2 restart poly-bot~
+anand123@897cf8530ff6:~$ 
+anand123@897cf8530ff6:~$ 
+anand123@897cf8530ff6:~$ 
+anand123@897cf8530ff6:~$ cd ~/Copy-trade-bot && git stash && git pull && git stash pop && npm install && npm run build && pm2 restart poly-bot
+No local changes to save
+remote: Enumerating objects: 15, done.
+remote: Counting objects: 100% (15/15), done.
+remote: Compressing objects: 100% (7/7), done.
+remote: Total 8 (delta 6), reused 0 (delta 0), pack-reused 0 (from 0)
+Unpacking objects: 100% (8/8), 869 bytes | 96.00 KiB/s, done.
+From https://github.com/tganand/Copy-trade-bot
+   1a8d0cc..4f5f977  main       -> origin/main
+Updating 1a8d0cc..4f5f977
+Fast-forward
+ server.ts                  | 4 +++-
+ src/types/index.ts         | 1 +
+ src/utils/tradingEngine.ts | 1 +
+ 3 files changed, 5 insertions(+), 1 deletion(-)
+No stash entries found.
+anand123@897cf8530ff6:~/Copy-trade-bot$ 

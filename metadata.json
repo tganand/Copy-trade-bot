@@ -1,0 +1,6 @@
+{
+  "name": "Polymarket Copy Trade & Whale Tracker",
+  "description": "Real-time trade tracker and $5 copy-trading engine for Polymarket trader @dangerously-skip-permissions with live PnL and Telegram alerts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
