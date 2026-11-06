@@ -798,15 +798,22 @@ export function autoClosePastWindowPositions(
       (currentTimeSec > windowEndTs);
 
     if (isPastWindow) {
-      const livePrice = livePrices[key] ?? livePrices[pos.asset] ?? pos.currentPrice;
-      const proceeds = Number((pos.shares * livePrice).toFixed(4));
+      // In Polymarket binary markets:
+      // The winning contract resolves to EXACTLY $1.00 (100¢).
+      // The losing contract resolves to EXACTLY $0.00 (0¢) with total loss of stake.
+      const rawPrice = livePrices[key] ?? livePrices[pos.asset] ?? pos.currentPrice;
+      const isWinner = rawPrice >= 0.50;
+      const settlementPrice = isWinner ? 1.0 : 0.0;
+      const proceeds = Number((pos.shares * settlementPrice).toFixed(4));
       const baseCostOfSoldShares = pos.totalCost - (pos.buyFeePaid || 0);
       const buyFeeAllocated = pos.buyFeePaid || 0;
       const sellFeeUsdc = 0; // Held to expiry: no sell fee
 
       const grossPnl = Number((proceeds - baseCostOfSoldShares).toFixed(4));
-      const netPnl = Number((grossPnl - buyFeeAllocated).toFixed(4));
-      const netPnlPercent = Number(((netPnl / pos.totalCost) * 100).toFixed(2));
+      const netPnl = Number((proceeds - pos.totalCost).toFixed(4));
+      const netPnlPercent = isWinner
+        ? Number(((netPnl / pos.totalCost) * 100).toFixed(2))
+        : -100.0;
 
       updatedAccount.cashBalance = Number((updatedAccount.cashBalance + proceeds).toFixed(4));
       updatedAccount.totalRealizedPnl = Number((updatedAccount.totalRealizedPnl + netPnl).toFixed(4));
@@ -825,13 +832,13 @@ export function autoClosePastWindowPositions(
         asset: pos.asset,
         conditionId: pos.conditionId || '',
         positionId: key,
-        targetPrice: livePrice,
-        copyPrice: livePrice,
+        targetPrice: settlementPrice,
+        copyPrice: settlementPrice,
         targetSizeUsdc: pos.targetSizeUsdc || proceeds,
         targetShares: pos.shares,
         copySizeUsdc: proceeds,
         copyShares: pos.shares,
-        capitalRecoveredUsdc: Number(baseCostOfSoldShares.toFixed(4)),
+        capitalRecoveredUsdc: Number((isWinner ? baseCostOfSoldShares : 0).toFixed(4)),
         grossProceedsUsdc: proceeds,
         netProceedsUsdc: proceeds, // Zero sell fee on expiry
         realizedProfitUsdc: netPnl,
@@ -842,16 +849,16 @@ export function autoClosePastWindowPositions(
         grossPnlUsdc: grossPnl,
         buyFeeUsdc: buyFeeAllocated,
         sellFeeUsdc: 0,
-        sellReason: livePrice >= 0.5 ? 'RESOLUTION_WIN_$1.00' : 'RESOLUTION_LOSS_$0.00',
+        sellReason: isWinner ? 'RESOLUTION_WIN_$1.00' : 'RESOLUTION_LOSS_$0.00',
         status: 'CLOSED',
-        exitPrice: livePrice,
+        exitPrice: settlementPrice,
         exitTimestamp: currentTimeSec,
         feeUsdc: 0,
         feeRate: 0,
         feeSource: 'market',
       });
 
-      console.log(`[Auto-Close Past Window] Closed position "${pos.title}" (${pos.outcome}). Realized Net PnL: $${netPnl.toFixed(2)}`);
+      console.log(`[Auto-Close Past Window] Closed position "${pos.title}" (${pos.outcome}) at $${settlementPrice.toFixed(2)}. Realized Net PnL: $${netPnl.toFixed(2)}`);
     }
   }
 

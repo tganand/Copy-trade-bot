@@ -1064,6 +1064,45 @@ async function fetch15mWindowClobTokens(symbol: string, ts: number): Promise<{ u
       }
     }
   } catch {}
+
+  // Fallback: Search gamma API for active crypto events co-located
+  try {
+    const searchRes = await fetch(`https://gamma-api.polymarket.com/events?closed=false&limit=30&tag=crypto`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    });
+    if (searchRes.ok) {
+      const events = (await searchRes.json()) as any[];
+      if (Array.isArray(events)) {
+        for (const ev of events) {
+          const title = (ev.title || '').toLowerCase();
+          if ((title.includes('btc') || title.includes('bitcoin')) && (title.includes('15m') || title.includes('15-min') || title.includes('up or down'))) {
+            if (Array.isArray(ev.markets) && ev.markets.length > 0) {
+              const m = ev.markets[0];
+              let clobTokens: string[] = [];
+              if (m.clobTokenIds) {
+                clobTokens = typeof m.clobTokenIds === 'string' ? JSON.parse(m.clobTokenIds) : m.clobTokenIds;
+              }
+              if (clobTokens.length >= 2 && isValidClobTokenId(clobTokens[0]) && isValidClobTokenId(clobTokens[1])) {
+                const prices = m.outcomePrices ? (typeof m.outcomePrices === 'string' ? JSON.parse(m.outcomePrices) : m.outcomePrices) : [];
+                const upPrice = parseFloat(prices[0]) || 0.5;
+                const downPrice = parseFloat(prices[1]) || 0.5;
+                console.log(`[15m Discovery] Fallback matched event: ${ev.title}`);
+                return {
+                  upTokenId: clobTokens[0],
+                  downTokenId: clobTokens[1],
+                  conditionId: m.conditionId || '',
+                  title: m.question || ev.title || `Bitcoin Up or Down - 15m Window`,
+                  marketId: m.id || m.conditionId || `market_${ts}`,
+                  outcomePrices: [upPrice, downPrice],
+                };
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch {}
+
   return null;
 }
 
@@ -1233,25 +1272,25 @@ function evaluateMomentumStrategy(symbol: string) {
 
 
 
-  // Liquidity depth helper (Rule #4: bid depth between entry and entry-20¢ >= 3x stake)
+  // Liquidity depth helper (requires minimum 1x stake depth in order book)
   const hasSufficientBidDepth = (book: any, currentPrice: number) => {
     if (!book || !book.bids || !Array.isArray(book.bids)) return true;
     const floorPrice = Math.max(0.01, currentPrice - 0.20);
     const totalDepth = book.bids
       .filter((b: any) => b.price >= floorPrice && b.price <= currentPrice)
       .reduce((sum: number, b: any) => sum + (b.price * b.size), 0);
-    return totalDepth >= (config.stakeSize * 3);
+    return totalDepth >= config.stakeSize;
   };
 
-  // Trigger on UP crossing >= 75¢
-  if (upPrice !== undefined && upPrice >= config.entryThreshold && upPrice < 0.98) {
+  // Trigger on UP crossing >= 75¢ (capped at 82¢ max to strictly prevent buying at 85¢)
+  if (upPrice !== undefined && upPrice >= config.entryThreshold && upPrice <= 0.82) {
 
     if (!hasSufficientBidDepth(upBook, upPrice)) {
       return; // Skip if thin book liquidity
     }
     if (!crossedThresholdTime[upAsset]) crossedThresholdTime[upAsset] = now;
-    if (now - crossedThresholdTime[upAsset] >= 3500) {
-      console.log(`[${symbol} 15m MOMENTUM BREAKOUT] UP price $${upPrice.toFixed(2)} held >= 75¢ for 3.5s. Entering trade.`);
+    if (now - crossedThresholdTime[upAsset] >= 1000) {
+      console.log(`[${symbol} 15m MOMENTUM BREAKOUT] UP price $${upPrice.toFixed(2)} held >= 75¢ for 1.0s. Entering trade.`);
       const mockTrade: PolymarketActivityItem = {
         proxyWallet: '15m_momentum_bot',
         timestamp: nowSec,
@@ -1303,14 +1342,14 @@ function evaluateMomentumStrategy(symbol: string) {
     crossedThresholdTime[upAsset] = 0;
   }
 
-  // Trigger on DOWN crossing >= 75¢
-  if (downPrice !== undefined && downPrice >= config.entryThreshold && downPrice < 0.98) {
+  // Trigger on DOWN crossing >= 75¢ (capped at 82¢ max to strictly prevent buying at 85¢)
+  if (downPrice !== undefined && downPrice >= config.entryThreshold && downPrice <= 0.82) {
     if (!hasSufficientBidDepth(downBook, downPrice)) {
       return; // Skip if thin book liquidity
     }
     if (!crossedThresholdTime[downAsset]) crossedThresholdTime[downAsset] = now;
-    if (now - crossedThresholdTime[downAsset] >= 3500) {
-      console.log(`[${symbol} 15m MOMENTUM BREAKOUT] DOWN price $${downPrice.toFixed(2)} held >= 75¢ for 3.5s. Entering trade.`);
+    if (now - crossedThresholdTime[downAsset] >= 1000) {
+      console.log(`[${symbol} 15m MOMENTUM BREAKOUT] DOWN price $${downPrice.toFixed(2)} held >= 75¢ for 1.0s. Entering trade.`);
       const mockTrade: PolymarketActivityItem = {
         proxyWallet: '15m_momentum_bot',
         timestamp: nowSec,
@@ -1565,18 +1604,18 @@ async function processTrade(
       const expectedFillPrice = livePrice;
       const whalePrice = trade.price;
 
-      // 1. Entry Price Range (85¢ to 98¢)
-      if (expectedFillPrice < 0.85) {
+      // 1. Entry Price Range (75¢ to 98¢)
+      if (expectedFillPrice < 0.75) {
         telemetryCounters.skippedSizeFilterCount = (telemetryCounters.skippedSizeFilterCount || 0) + 1;
         recordDedupEvent({
           fingerprint: fp,
           occurrence: 1,
           source,
-          reason: 'price below 85¢',
+          reason: 'price below 75¢',
           timestamp: Date.now(),
           trade,
         });
-        console.log(`[COPY SKIPPED] price below 85¢ (Expected fill: $${expectedFillPrice.toFixed(2)})`);
+        console.log(`[COPY SKIPPED] price below 75¢ (Expected fill: $${expectedFillPrice.toFixed(2)})`);
         return;
       }
 

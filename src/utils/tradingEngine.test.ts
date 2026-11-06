@@ -255,14 +255,14 @@ test('autoClosePastWindowPositions closes past window positions when next window
   // When next window opens (timestamp 1793508600, which is > 1793508000)
   const nextWindowTs = 1793508600;
   const updatedAccount = autoClosePastWindowPositions(afterBuy, nextWindowTs, {
-    'cond_w1_Up': 0.20, // closed at 0.20 (profit)
+    'cond_w1_Up': 1.0, // resolved as win at 1.00
   });
 
   assert.equal(Object.keys(updatedAccount.positions).length, 0);
   assert.equal(updatedAccount.history.length, 2);
   assert.equal(updatedAccount.history[0].status, 'CLOSED');
-  assert.equal(updatedAccount.totalRealizedPnl, 5); // 50 shares * (0.20 - 0.10) = $5 profit
-  assert.equal(updatedAccount.cashBalance, 1005); // $995 + $10 proceeds = $1005
+  assert.equal(updatedAccount.totalRealizedPnl, 45); // 50 shares * (1.00 - 0.10) = $45 profit
+  assert.equal(updatedAccount.cashBalance, 1045); // $995 + $50 proceeds = $1045
 });
 
 test('fee formula: 100 shares at $0.50 with a 0.07 taker rate produces $1.75 fee', () => {
