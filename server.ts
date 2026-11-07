@@ -1282,8 +1282,8 @@ function evaluateMomentumStrategy(symbol: string) {
     const positionAgeSec = pos.openedAt > 0 ? (nowMs / 1000 - pos.openedAt) : 999;
 
     // A. TAKE-PROFIT: Exit strictly on 85¢ on the spot (locked at 85¢ profit)
-    // Triggers if real price (bid, ask, or last traded price) hits or crosses 85¢
-    const isTakeProfit = realPrice >= 0.85 || bestBid >= 0.85 || lastPrice >= 0.85 || (bestAsk >= 0.85 && positionAgeSec >= 1);
+    // Triggers if currentPrice, realPrice (bid, ask, or last traded price) hits or crosses 85¢
+    const isTakeProfit = pos.currentPrice >= 0.85 || realPrice >= 0.85 || bestBid >= 0.85 || lastPrice >= 0.85 || (bestAsk >= 0.85 && positionAgeSec >= 1);
     if (isTakeProfit) {
       console.log(`🎯 [${symbol} 15m TAKE-PROFIT 85¢ ON THE SPOT] ${pos.title} (${pos.outcome}) Price hit 85¢. Locking profit @ 85.0¢.`);
       const res = executeInternalSell(account, key, 1.0, 'TAKE_PROFIT_85¢_SPOT', 0.85, DEFAULT_TAKER_FEE_RATE, 'assumed', thisBook);
