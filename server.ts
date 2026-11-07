@@ -1267,63 +1267,46 @@ function evaluateMomentumStrategy(symbol: string) {
       ? (isUp ? activeWindow.outcomePrices[0] : activeWindow.outcomePrices[1])
       : 0;
 
-    // Real price: genuine live quote (no synthetic or 0.50 fake defaults)
-    const realPrice = bestBid > 0 ? bestBid : (lastPrice > 0 ? lastPrice : (bestAsk > 0 ? bestAsk : (gammaPrice > 0 ? gammaPrice : (pos.currentPrice > 0 ? pos.currentPrice : pos.entryPrice))));
-    if (!realPrice || realPrice <= 0) continue;
+    // ABSOLUTE EXIT RULES: Instant Fake-Close
+    const currentPrice = pos.currentPrice;
+    const unrealizedLoss = pos.totalCost - (pos.shares * currentPrice);
 
-    // Keep position telemetry up to date with real price
-    pos.currentPrice = realPrice;
-    pos.currentValue = Number((pos.shares * realPrice).toFixed(4));
-    pos.unrealizedPnl = Number((pos.currentValue - pos.totalCost).toFixed(4));
-    pos.unrealizedPnlPercent = Number((((realPrice - pos.entryPrice) / (pos.entryPrice || 1)) * 100).toFixed(2));
-
-    const realLoss = Number((pos.totalCost - pos.currentValue).toFixed(4));
-    const nowMs = Date.now();
-    const positionAgeSec = pos.openedAt > 0 ? (nowMs / 1000 - pos.openedAt) : 999;
-
-    // A. TAKE-PROFIT: Exit strictly on 85¢ on the spot (locked at 85¢ profit)
-    // Triggers if currentPrice >= 0.85.
-    const isTakeProfit = pos.currentPrice >= 0.85;
-    if (isTakeProfit) {
-      console.log(`🎯 [${symbol} 15m TAKE-PROFIT TRIGGERED] ${pos.title} (${pos.outcome}) Price: ${pos.currentPrice}. Executing fake-close at 85.0¢.`);
+    // A. TAKE-PROFIT: Exit strictly on 85¢ or higher
+    if (currentPrice >= 0.85) {
+      console.log(`🎯 [${symbol} 15m FORCE-CLOSE TP] ${pos.title} (${pos.outcome}) Price: ${currentPrice}. Exiting @ 85.0¢.`);
       const res = executeInternalSell(account, key, 1.0, 'TAKE_PROFIT_85¢_SPOT', 0.85, DEFAULT_TAKER_FEE_RATE, 'assumed', thisBook);
-      if (res.error) {
-        console.error(`❌ [${symbol} 15m TAKE-PROFIT ERROR]`, res.error);
-      } else {
+      if (res.error) console.error(`❌ [${symbol} 15m TP ERROR]`, res.error);
+      else {
         momentumAccounts[symbol] = res.account;
         flushState();
-        broadcastSSE({
-          type: 'momentum_account_update',
-          symbol,
-          account: momentumAccounts[symbol],
-          metrics: calculatePortfolioMetrics(momentumAccounts[symbol], livePrices),
-        });
-        console.log(`✅ [${symbol} 15m TAKE-PROFIT EXECUTED] Closed ${pos.outcome} @ 85.0¢.`);
+        broadcastSSE({ type: 'momentum_account_update', symbol, account: momentumAccounts[symbol], metrics: calculatePortfolioMetrics(momentumAccounts[symbol], livePrices) });
       }
       continue;
     }
 
     // B. STOP-LOSS: Locked at exact $3.00 loss
-    // Triggers if real loss reaches $3.00 (or realPrice <= 0.56, or unrealizedPnl <= -3.00)
-    const isStopLoss = positionAgeSec >= 1 && (realLoss >= 3.00 || realPrice <= 0.56 || pos.unrealizedPnl <= -3.00);
-    if (isStopLoss) {
-      const exact3DollarLossPrice = Number(((pos.totalCost - 3.00) / pos.shares).toFixed(4));
-      console.log(`🛑 [${symbol} 15m STOP-LOSS $3.00 TRIGGERED] ${pos.title} (${pos.outcome}) Locking exit at exact -$3.00 loss.`);
-      const res = executeInternalSell(account, key, 1.0, '15M_STOP_LOSS_$3.00', exact3DollarLossPrice, DEFAULT_TAKER_FEE_RATE, 'assumed', thisBook);
-      if (!res.error) {
+    if (unrealizedLoss >= 3.00) {
+      const exitPrice = Number(((pos.totalCost - 3.00) / pos.shares).toFixed(4));
+      console.log(`🛑 [${symbol} 15m FORCE-CLOSE SL] ${pos.title} (${pos.outcome}) Loss: ${unrealizedLoss}. Exiting @ $3.00 loss.`);
+      const res = executeInternalSell(account, key, 1.0, '15M_STOP_LOSS_$3.00', exitPrice, DEFAULT_TAKER_FEE_RATE, 'assumed', thisBook);
+      if (res.error) console.error(`❌ [${symbol} 15m SL ERROR]`, res.error);
+      else {
         momentumAccounts[symbol] = res.account;
         flushState();
-        broadcastSSE({
-          type: 'momentum_account_update',
-          symbol,
-          account: momentumAccounts[symbol],
-          metrics: calculatePortfolioMetrics(momentumAccounts[symbol], livePrices),
-        });
-        console.log(`✅ [${symbol} 15m STOP-LOSS EXECUTED] Closed ${pos.outcome} strictly with locked -$3.00 loss.`);
+        broadcastSSE({ type: 'momentum_account_update', symbol, account: momentumAccounts[symbol], metrics: calculatePortfolioMetrics(momentumAccounts[symbol], livePrices) });
       }
       continue;
     }
-  }
+
+    // Real price: genuine live quote
+    const realPrice = bestBid > 0 ? bestBid : (lastPrice > 0 ? lastPrice : (bestAsk > 0 ? bestAsk : (gammaPrice > 0 ? gammaPrice : (pos.currentPrice > 0 ? pos.currentPrice : pos.entryPrice))));
+    if (!realPrice || realPrice <= 0) continue;
+
+    // Keep position telemetry up to date
+    pos.currentPrice = realPrice;
+    pos.currentValue = Number((pos.shares * realPrice).toFixed(4));
+    pos.unrealizedPnl = Number((pos.currentValue - pos.totalCost).toFixed(4));
+    pos.unrealizedPnlPercent = Number((((realPrice - pos.entryPrice) / (pos.entryPrice || 1)) * 100).toFixed(2));
 
   // 2. Auto-close expired window positions
   if (activeWindow) {
