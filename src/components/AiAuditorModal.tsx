@@ -72,7 +72,7 @@ export const AiAuditorModal: React.FC<AiAuditorModalProps> = ({
             <div>
               <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Current Bot Setup</div>
               <div className="text-sm font-bold text-slate-200 mt-0.5">
-                Breakout: <span className="text-amber-400">≥{Math.round(config.entryThreshold * 100)}¢</span> · Stop-Loss: <span className="text-rose-400">{Math.round(config.stopLossPrice * 100)}¢</span> · Stake: <span className="text-emerald-400">${config.stakeSize}</span>
+                Entry: <span className="text-amber-400">≥{Math.round(config.entryThreshold * 100)}¢</span> · Spot Exit: <span className="text-emerald-400">{Math.round((config.takeProfitPrice || 0.85) * 100)}¢</span> · Stop: <span className="text-rose-400">-${config.stopLossDollars || 3}</span> · Stake: <span className="text-emerald-400">${config.stakeSize}</span>
               </div>
             </div>
             <button

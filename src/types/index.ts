@@ -239,18 +239,12 @@ export interface ActiveBtcWindow {
 
 export interface Btc15mBotConfig {
   isEnabled: boolean;
-  stakeSize: number; // $10.00
-  entryThreshold: number; // 0.75 (75¢)
-  stopLossPrice: number; // 0.60 (60¢)
-  takeProfitPrice: number; // 0.97 (97¢)
+  stakeSize: number; // $10.00 (Single trade, no hedge)
+  entryThreshold: number; // 0.80 (80¢)
+  takeProfitPrice: number; // 0.85 (85¢ on the spot)
+  stopLossDollars: number; // $3.00 loss
 }
 
-export interface PairStrategyConfig {
-  isEnabled: boolean;
-  shares: number; // default 10 shares
-  highThreshold: number; // default 0.75 (75¢)
-  lowThreshold: number; // default 0.20 (20¢)
-}
 
 
 

@@ -151,13 +151,13 @@ export const MomentumPanel: React.FC<MomentumPanelProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                {symbol} 15m Momentum Strategy
+                {symbol} 15m Automated Strategy
                 <span className="text-xs px-2.5 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/25 font-mono">
-                  {Math.round(config.entryThreshold * 100)}¢ Breakout
+                  80¢ Entry → 85¢ Spot Exit
                 </span>
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Automatically buys ${config.stakeSize} when Up or Down crosses ≥ {Math.round(config.entryThreshold * 100)}¢. Target: ${config.takeProfitPrice.toFixed(2)} · Stop-Loss: ${config.stopLossPrice.toFixed(2)}
+                Single trade of ${config.stakeSize || 10} at 80¢. Exits on 85¢ on the spot. Stop-loss: $3.00 loss (rapid market retries).
               </p>
             </div>
           </div>
@@ -324,7 +324,7 @@ export const MomentumPanel: React.FC<MomentumPanelProps> = ({
           <div className="bg-slate-950/40 p-3.5 rounded-xl border border-slate-800/60 space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="text-slate-400 font-semibold">
-                Momentum Breakout Trigger: <b className="text-amber-400 font-mono">≥ {Math.round(config.entryThreshold * 100)}.0¢</b> (${config.stakeSize} Trade Stake)
+                Entry Rule: <b className="text-amber-400 font-mono">≥ 80¢</b> (${config.stakeSize || 10} Single Trade) · Exit: <b className="text-emerald-400 font-mono">85¢ Spot</b> · Stop: <b className="text-rose-400 font-mono">$3.00 Loss</b>
               </span>
               <span className="font-mono text-xs">
                 {isUpTriggered ? (
@@ -333,7 +333,7 @@ export const MomentumPanel: React.FC<MomentumPanelProps> = ({
                   <span className="text-cyan-400 font-bold">DOWN TRIGGER MET ({downCents}¢)</span>
                 ) : (
                   <span className="text-slate-400">
-                    Highest: {Math.max(upCents || 0, downCents || 0)}¢ / {Math.round(config.entryThreshold * 100)}¢
+                    Highest: {Math.max(upCents || 0, downCents || 0)}¢ / 80¢
                   </span>
                 )}
               </span>
@@ -348,7 +348,7 @@ export const MomentumPanel: React.FC<MomentumPanelProps> = ({
                     : 'bg-amber-400/70'
                 }`}
                 style={{
-                  width: `${Math.min(100, (Math.max(upCents || 0, downCents || 0) / (config.entryThreshold * 100)) * 100)}%`,
+                  width: `${Math.min(100, (Math.max(upCents || 0, downCents || 0) / 80) * 100)}%`,
                 }}
               />
             </div>
@@ -515,7 +515,7 @@ export const MomentumPanel: React.FC<MomentumPanelProps> = ({
                         {isWin ? '+' : ''}${pnl.toFixed(2)} ({isWin ? '+' : ''}{pnlPercent}%)
                       </div>
                       <div className="text-[11px] text-slate-500 font-mono">
-                        Target: {Math.round((config.takeProfitPrice || 0) * 100)}¢ · Stop: {Math.round((config.stopLossPrice || 0) * 100)}¢
+                        Target: {Math.round((config.takeProfitPrice || 0.85) * 100)}¢ · Stop: -${(config.stopLossDollars || 3).toFixed(2)}
                       </div>
                     </div>
 
@@ -674,7 +674,7 @@ export const MomentumPanel: React.FC<MomentumPanelProps> = ({
             <p className="text-xs text-slate-400 mt-0.5">Live strategy rules, risk parameters, and recent updates deployed to the bot.</p>
           </div>
           <span className="text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono font-bold">
-            V2.8 Production Live
+            V3.0 Production Live
           </span>
         </div>
 
@@ -682,27 +682,27 @@ export const MomentumPanel: React.FC<MomentumPanelProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
           <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-1.5">
             <div className="font-bold text-amber-400 flex items-center gap-1.5">
-              <span>🎯</span> 75¢ Entry Breakout (Max 82¢)
+              <span>🎯</span> 80¢ Entry ($10 Single Trade)
             </div>
-            <p className="text-slate-400">Triggers when Up or Down crosses & holds at <strong>≥75¢</strong>. Hard ceiling at <strong>82¢</strong> to strictly prevent late buying at 85¢.</p>
-          </div>
-          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-1.5">
-            <div className="font-bold text-blue-400 flex items-center gap-1.5">
-              <span>🛡️</span> $1.00 Opposite Hedge Rule
-            </div>
-            <p className="text-slate-400">On every $10 entry, automatically buys <strong>$1.00</strong> on the opposite side as a built-in hedge.</p>
-          </div>
-          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-1.5">
-            <div className="font-bold text-rose-400 flex items-center gap-1.5">
-              <span>🛡️</span> 60¢ Stop-Loss & Stepped Exits
-            </div>
-            <p className="text-slate-400">Triggers at <strong>60¢</strong> using real CLOB order book stepped limit execution.</p>
+            <p className="text-slate-400">Takes strictly <strong>1 trade of $10.00</strong> when Up or Down reaches <strong>80¢</strong> (entry corridor 80¢–83¢). All hedge trades removed.</p>
           </div>
           <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-1.5">
             <div className="font-bold text-emerald-400 flex items-center gap-1.5">
-              <span>🎯</span> 97¢ Take-Profit & Binary Expiry
+              <span>⚡</span> 85¢ Exit On The Spot
             </div>
-            <p className="text-slate-400">Locks in gains early at <strong>97¢</strong>. At expiry, winner settles at <strong>$1.00</strong> and loser at <strong>$0.00</strong>.</p>
+            <p className="text-slate-400">Instantly sells 100% of the position on the spot when live bid crosses <strong>85¢</strong>, locking in quick momentum profit.</p>
+          </div>
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-1.5">
+            <div className="font-bold text-rose-400 flex items-center gap-1.5">
+              <span>🛑</span> $3.00 Stop Loss (Continuous Retries)
+            </div>
+            <p className="text-slate-400">Triggers when loss reaches <strong>$3.00</strong>. Retries selling every <strong>50ms</strong> continuously until completely exited (at $3, $4, or $5 loss).</p>
+          </div>
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-1.5">
+            <div className="font-bold text-blue-400 flex items-center gap-1.5">
+              <span>💰</span> PnL After Fees & Fees Paid
+            </div>
+            <p className="text-slate-400">All realized PnL and account balances are strictly <strong>net of taker fees</strong>. Total fees paid are transparently itemized.</p>
           </div>
         </div>
 
@@ -715,29 +715,29 @@ export const MomentumPanel: React.FC<MomentumPanelProps> = ({
             <div className="p-3.5 space-y-1">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-emerald-400 flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono">V2.8</span>
-                  Mutual Exclusion Binary Settlement & Prompt 75¢ Entry
+                  <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono">V3.0</span>
+                  New Rules: 80¢ Entry, 85¢ Spot Exit, $3.00 Stop Loss with Rapid Retries
                 </span>
                 <span className="text-[10px] text-slate-500 font-mono">Latest Update</span>
               </div>
               <ul className="text-slate-400 space-y-1 list-disc list-inside text-[11px] pl-1">
-                <li><strong>Fixed Binary Resolution Double-Profit Bug:</strong> Enforced strict mutual exclusion at window expiration. One outcome resolves to $1.00 (win) and the opposite resolves to $0.00 (loss). Both outcomes can never show profit simultaneously.</li>
-                <li><strong>Fixed 85¢ Buying Delay:</strong> Lowered order book depth requirement to 1x stake ($10) and hold time to 1.0s, and capped entry price between 75¢ and 82¢ to strictly prevent entering late at 85¢.</li>
+                <li><strong>Wiped All Old Rules & Removed Pair Strategy:</strong> Removed the second pair arbitrage section completely. Removed the $1.00 opposite hedge trade. Now executes exactly 1 single trade of $10.00 at 80¢.</li>
+                <li><strong>85¢ Spot Exit:</strong> Automatically sells on the spot as soon as live market price touches 85¢.</li>
+                <li><strong>$3.00 Stop Loss with 50ms Retries:</strong> Enforces a strict $3.00 stop loss. If order book liquidity doesn't fill on first attempt, the bot retries continuously every 50ms tick until exited (at $3, $4, or $5 loss).</li>
+                <li><strong>PnL After Fees:</strong> Realized returns and ledger entries are strictly net of all Polymarket taker fees, with total fees paid clearly itemized.</li>
               </ul>
             </div>
 
             <div className="p-3.5 space-y-1">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-amber-400 flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] font-mono">V2.7</span>
-                  75¢ Breakout & Mandatory $1 Hedge Rule
+                  <span className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] font-mono">V2.8</span>
+                  Mutual Exclusion Binary Settlement
                 </span>
                 <span className="text-[10px] text-slate-500 font-mono">Previous Update</span>
               </div>
               <ul className="text-slate-400 space-y-1 list-disc list-inside text-[11px] pl-1">
-                <li>Adjusted primary momentum entry trigger threshold to 75¢.</li>
-                <li>Implemented automatic $1.00 opposite-side contract hedge on every $10 trade entry.</li>
-                <li>Pinned Tailwind CSS dependencies to 4.3.3 to guarantee clean VPS builds.</li>
+                <li>Fixed binary resolution mutual exclusion so winner settles at $1.00 and loser settles strictly at $0.00 (eliminating double-profit display).</li>
               </ul>
             </div>
 
