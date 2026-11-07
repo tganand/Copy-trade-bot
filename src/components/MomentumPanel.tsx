@@ -674,7 +674,7 @@ export const MomentumPanel: React.FC<MomentumPanelProps> = ({
             <p className="text-xs text-slate-400 mt-0.5">Live strategy rules, risk parameters, and recent updates deployed to the bot.</p>
           </div>
           <span className="text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono font-bold">
-            V3.0 Production Live
+            V3.1 Production Live
           </span>
         </div>
 
@@ -684,19 +684,19 @@ export const MomentumPanel: React.FC<MomentumPanelProps> = ({
             <div className="font-bold text-amber-400 flex items-center gap-1.5">
               <span>🎯</span> 80¢ Entry ($10 Single Trade)
             </div>
-            <p className="text-slate-400">Takes strictly <strong>1 trade of $10.00</strong> when Up or Down reaches <strong>80¢</strong> (entry corridor 80¢–83¢). All hedge trades removed.</p>
+            <p className="text-slate-400">Takes strictly <strong>1 trade of $10.00</strong> when Up or Down reaches <strong>80¢</strong> (entry corridor 80¢–83¢). Zero hedging trades.</p>
           </div>
           <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-1.5">
             <div className="font-bold text-emerald-400 flex items-center gap-1.5">
-              <span>⚡</span> 85¢ Exit On The Spot
+              <span>⚡</span> 85¢ Strict Exit On The Spot
             </div>
-            <p className="text-slate-400">Instantly sells 100% of the position on the spot when live bid crosses <strong>85¢</strong>, locking in quick momentum profit.</p>
+            <p className="text-slate-400">Instantly sells 100% of the position on the spot at <strong>85¢</strong> when market touches 85¢ on asks, bids, last trade, or gamma feed.</p>
           </div>
           <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-1.5">
             <div className="font-bold text-rose-400 flex items-center gap-1.5">
-              <span>🛑</span> $3.00 Stop Loss (Continuous Retries)
+              <span>🛑</span> $3.00–$4.00 Strict Stop Loss
             </div>
-            <p className="text-slate-400">Triggers when loss reaches <strong>$3.00</strong>. Retries selling every <strong>50ms</strong> continuously until completely exited (at $3, $4, or $5 loss).</p>
+            <p className="text-slate-400">Strictly exits when loss reaches <strong>$3.00</strong> (or price drops to 56¢, or opposite surges to 44¢), locking in exactly <strong>-$3.00 to -$4.00 loss</strong>.</p>
           </div>
           <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-1.5">
             <div className="font-bold text-blue-400 flex items-center gap-1.5">
@@ -715,16 +715,29 @@ export const MomentumPanel: React.FC<MomentumPanelProps> = ({
             <div className="p-3.5 space-y-1">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-emerald-400 flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono">V3.0</span>
-                  New Rules: 80¢ Entry, 85¢ Spot Exit, $3.00 Stop Loss with Rapid Retries
+                  <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono">V3.1</span>
+                  Strict 85¢ Spot Exit & Guaranteed $3.00–$4.00 Stop Loss Execution
                 </span>
                 <span className="text-[10px] text-slate-500 font-mono">Latest Update</span>
               </div>
               <ul className="text-slate-400 space-y-1 list-disc list-inside text-[11px] pl-1">
-                <li><strong>Wiped All Old Rules & Removed Pair Strategy:</strong> Removed the second pair arbitrage section completely. Removed the $1.00 opposite hedge trade. Now executes exactly 1 single trade of $10.00 at 80¢.</li>
-                <li><strong>85¢ Spot Exit:</strong> Automatically sells on the spot as soon as live market price touches 85¢.</li>
-                <li><strong>$3.00 Stop Loss with 50ms Retries:</strong> Enforces a strict $3.00 stop loss. If order book liquidity doesn't fill on first attempt, the bot retries continuously every 50ms tick until exited (at $3, $4, or $5 loss).</li>
-                <li><strong>PnL After Fees:</strong> Realized returns and ledger entries are strictly net of all Polymarket taker fees, with total fees paid clearly itemized.</li>
+                <li><strong>Fixed 85¢ Exit Delay:</strong> Aggregated multi-stream pricing across CLOB asks, bids, last trade prices, and gamma REST feeds. The moment any stream touches 85¢, the bot instantly liquidates 100% on the spot at 85¢ (no longer waiting for lower bids or holding until resolution).</li>
+                <li><strong>Guaranteed $3.00 to $4.00 Stop Loss:</strong> Position is strictly closed when loss reaches $3.00 (or valuation falls to 56¢, or opposite contract surges to 44¢). Exit price is strictly enforced between 48¢ and 56¢ to deliver an exact -$3.00 to -$4.00 loss without hanging.</li>
+                <li><strong>Continuous 50ms Decoupled Evaluation:</strong> Open position risk management now executes every 50ms regardless of window transitions or re-polling events.</li>
+              </ul>
+            </div>
+
+            <div className="p-3.5 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-300 flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] font-mono">V3.0</span>
+                  Single $10 Trade at 80¢ & Removed Pair Strategy
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono">Previous Update</span>
+              </div>
+              <ul className="text-slate-400 space-y-1 list-disc list-inside text-[11px] pl-1">
+                <li>Wiped all old rules and removed the pair arbitrage section.</li>
+                <li>Configured 1 single trade of $10.00 at 80¢ with 0 hedge trades.</li>
               </ul>
             </div>
 

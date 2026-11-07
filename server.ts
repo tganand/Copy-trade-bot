@@ -1178,90 +1178,138 @@ async function send15mWinTelegramAlert(outcome: string, profitUsdc: number, cash
 }
 
 function evaluateMomentumStrategy(symbol: string) {
-  const activeWindow = activeMomentumWindows[symbol];
-  if (!activeWindow) return;
   const account = momentumAccounts[symbol];
-  const config = momentumConfigs[symbol];
-  const tradedWindows = momentumTradedWindows[symbol];
+  if (!account) return;
+  const config = momentumConfigs[symbol] || {
+    isEnabled: true,
+    stakeSize: 10.0,
+    entryThreshold: 0.80,
+    takeProfitPrice: 0.85,
+    stopLossDollars: 3.00,
+  };
+  const activeWindow = activeMomentumWindows[symbol];
+  const tradedWindows = momentumTradedWindows[symbol] || new Set<string>();
 
   const nowSec = Math.floor(Date.now() / 1000);
-  const upAsset = activeWindow.upTokenId;
-  const downAsset = activeWindow.downTokenId;
+  const now = Date.now();
+  const upAsset = activeWindow?.upTokenId;
+  const downAsset = activeWindow?.downTokenId;
 
-  const upBook = marketBooks[upAsset];
-  const downBook = marketBooks[downAsset];
+  const upBook = upAsset ? marketBooks[upAsset] : undefined;
+  const downBook = downAsset ? marketBooks[downAsset] : undefined;
 
-  const upPrice = upBook?.bestAsk > 0 ? upBook.bestAsk : (upBook?.bestBid > 0 ? upBook.bestBid : (upBook?.lastPrice > 0 ? upBook.lastPrice : (activeWindow.outcomePrices?.[0] || livePrices[upAsset] || 0.5)));
-  const downPrice = downBook?.bestAsk > 0 ? downBook.bestAsk : (downBook?.bestBid > 0 ? downBook.bestBid : (downBook?.lastPrice > 0 ? downBook.lastPrice : (activeWindow.outcomePrices?.[1] || livePrices[downAsset] || 0.5)));
+  const upPrice = (upBook && upBook.bestAsk > 0) ? upBook.bestAsk : ((upBook && upBook.bestBid > 0) ? upBook.bestBid : ((upBook && upBook.lastPrice > 0) ? upBook.lastPrice : (activeWindow?.outcomePrices?.[0] || (upAsset ? livePrices[upAsset] : 0.5))));
+  const downPrice = (downBook && downBook.bestAsk > 0) ? downBook.bestAsk : ((downBook && downBook.bestBid > 0) ? downBook.bestBid : ((downBook && downBook.lastPrice > 0) ? downBook.lastPrice : (activeWindow?.outcomePrices?.[1] || (downAsset ? livePrices[downAsset] : 0.5))));
 
-  // 1. Risk Management on existing open positions (85¢ TAKE PROFIT ON THE SPOT & $3.00 STOP LOSS WITH RETRIES)
+  // 1. Strict Risk Management on all existing open positions (85¢ EXIT ON THE SPOT & $3.00 TO $4.00 STOP LOSS)
   for (const [key, pos] of Object.entries(account.positions)) {
     const isUp = pos.outcome.toUpperCase() === 'UP';
     const thisAsset = pos.asset;
     const thisBook = marketBooks[thisAsset];
 
-    // Direct book prices
-    const directBid = thisBook && thisBook.bestBid > 0 ? thisBook.bestBid : null;
-    const directAsk = thisBook && thisBook.bestAsk > 0 ? thisBook.bestAsk : null;
-    const lastP = thisBook && thisBook.lastPrice > 0 ? thisBook.lastPrice : null;
+    // Gather price signals across all channels
+    const directBid = thisBook && thisBook.bestBid > 0 ? thisBook.bestBid : 0;
+    const directAsk = thisBook && thisBook.bestAsk > 0 ? thisBook.bestAsk : 0;
+    const lastP = thisBook && thisBook.lastPrice > 0 ? thisBook.lastPrice : 0;
+    const cachedLive = (livePrices[key] && livePrices[key] > 0) ? livePrices[key] : ((livePrices[thisAsset] && livePrices[thisAsset] > 0) ? livePrices[thisAsset] : 0);
 
-    // Gamma API official live outcomePrices
-    const gammaPrice = activeWindow.outcomePrices && activeWindow.outcomePrices.length >= 2
-      ? (isUp ? activeWindow.outcomePrices[0] : activeWindow.outcomePrices[1])
-      : null;
+    let windowPrice = 0;
+    let oppositePrice = 0;
+    if (activeWindow && (activeWindow.slug === pos.slug || activeWindow.conditionId === pos.conditionId)) {
+      windowPrice = isUp ? (upPrice || 0) : (downPrice || 0);
+      oppositePrice = isUp ? (downPrice || 0) : (upPrice || 0);
+      if (activeWindow.outcomePrices && activeWindow.outcomePrices.length >= 2) {
+        const gammaP = isUp ? activeWindow.outcomePrices[0] : activeWindow.outcomePrices[1];
+        if (gammaP > windowPrice) windowPrice = gammaP;
+      }
+    }
 
-    let liveExitPrice: number = directBid !== null && directBid > 0 
-      ? directBid 
-      : (directAsk !== null && directAsk > 0 
-        ? directAsk 
-        : (lastP !== null && lastP > 0 
-          ? lastP 
-          : (gammaPrice !== null && gammaPrice > 0 ? gammaPrice : pos.currentPrice)));
+    const impliedFromOpposite = oppositePrice > 0 ? Math.max(0, 1.0 - oppositePrice) : 0;
 
-    // Keep position telemetry up to date
-    pos.currentPrice = liveExitPrice;
-    pos.currentValue = Number((pos.shares * liveExitPrice).toFixed(4));
-    pos.unrealizedPnl = Number((pos.currentValue - pos.totalCost).toFixed(4));
-    pos.unrealizedPnlPercent = Number((((liveExitPrice - pos.entryPrice) / (pos.entryPrice || 1)) * 100).toFixed(2));
+    // Highest price reached across all data streams:
+    const highestPrice = Math.max(directAsk, lastP, directBid, cachedLive, windowPrice, impliedFromOpposite, pos.currentPrice || 0);
 
-    const currentLoss = pos.totalCost - pos.currentValue;
+    // Executable bid (prioritize real bid, then last trade, then window price):
+    const executableBid = directBid > 0 ? directBid : (lastP > 0 ? lastP : (windowPrice > 0 ? windowPrice : (cachedLive > 0 ? cachedLive : pos.entryPrice)));
 
-    // A. TAKE-PROFIT: Exit on 85¢ ON THE SPOT
-    if (liveExitPrice >= 0.85 || liveExitPrice >= (config.takeProfitPrice || 0.85)) {
-      console.log(`🎯 [${symbol} 15m TAKE-PROFIT 85¢ ON THE SPOT] ${pos.title} (${pos.outcome}) @ $${liveExitPrice.toFixed(3)} >= 85¢. Exiting immediately.`);
-      const res = executeInternalSell(account, key, 1.0, 'TAKE_PROFIT_85¢_SPOT', liveExitPrice, DEFAULT_TAKER_FEE_RATE, 'assumed', thisBook);
+    // Current valuation & loss
+    const valuationPrice = executableBid > 0 ? executableBid : (highestPrice > 0 ? highestPrice : pos.entryPrice);
+    const currentValue = Number((pos.shares * valuationPrice).toFixed(4));
+    const currentLoss = Number((pos.totalCost - currentValue).toFixed(4));
+    const unrealizedPnl = Number((currentValue - pos.totalCost).toFixed(4));
+    const pnlPercent = Number((((valuationPrice - pos.entryPrice) / (pos.entryPrice || 1)) * 100).toFixed(2));
+
+    // Update position telemetry
+    pos.currentPrice = valuationPrice;
+    pos.currentValue = currentValue;
+    pos.unrealizedPnl = unrealizedPnl;
+    pos.unrealizedPnlPercent = pnlPercent;
+
+    // A. TAKE-PROFIT: Strictly Exit on 85¢ ON THE SPOT
+    const targetTp = config.takeProfitPrice || 0.85;
+    if (highestPrice >= 0.85 || valuationPrice >= 0.85 || highestPrice >= targetTp || (oppositePrice > 0 && oppositePrice <= 0.15)) {
+      const tpExitPrice = Math.max(0.85, valuationPrice);
+      console.log(`🎯 [${symbol} 15m TAKE-PROFIT 85¢ ON THE SPOT] ${pos.title} (${pos.outcome}) price reached $${highestPrice.toFixed(3)} >= 85¢. Exiting immediately.`);
+      const res = executeInternalSell(account, key, 1.0, 'TAKE_PROFIT_85¢_SPOT', tpExitPrice, DEFAULT_TAKER_FEE_RATE, 'assumed', thisBook);
       if (!res.error) {
         momentumAccounts[symbol] = res.account;
         flushState();
+        broadcastSSE({
+          type: 'momentum_account_update',
+          symbol,
+          account: momentumAccounts[symbol],
+          metrics: calculatePortfolioMetrics(momentumAccounts[symbol], livePrices),
+        });
+        console.log(`✅ [${symbol} 15m TAKE-PROFIT 85¢ EXECUTED] Closed ${pos.outcome} on the spot @ $${tpExitPrice.toFixed(3)}.`);
       }
       continue;
     }
 
-    // B. STOP-LOSS: $3.00 LOSS (Retries continuously every cycle if not filled, up to $4-$5 loss)
-    const stopThreshold = config.stopLossDollars || 3.00;
-    if (currentLoss >= stopThreshold || pos.unrealizedPnl <= -stopThreshold) {
-      console.log(`🚨 [${symbol} 15m STOP-LOSS $3.00 TRIGGERED] ${pos.title} (${pos.outcome}) Current Loss: $${currentLoss.toFixed(2)} (Live Price: $${liveExitPrice.toFixed(3)}). Attempting market sell...`);
-      const res = executeInternalSell(account, key, 1.0, `STOP_LOSS_$${currentLoss.toFixed(2)}_LOSS`, liveExitPrice, DEFAULT_TAKER_FEE_RATE, 'assumed', thisBook);
+    // B. STOP-LOSS: Strictly Exit at $3.00 to $4.00 LOSS
+    // Triggers when:
+    // 1) currentLoss >= $3.00 (or unrealizedPnl <= -$3.00)
+    // 2) Valuation price drops to <= 56¢ (which is $3.00 loss on 12.5 shares)
+    // 3) Opposite side has rallied to >= 44¢ (which means our side is <= 56¢)
+    // 4) PnL drops to <= -30% (-$3.00 on a $10 position)
+    const isStopTriggered = currentLoss >= 3.00 ||
+      unrealizedPnl <= -3.00 ||
+      valuationPrice <= 0.56 ||
+      (oppositePrice > 0 && oppositePrice >= 0.44) ||
+      pnlPercent <= -30.0;
+
+    if (isStopTriggered) {
+      // Strictly clamp exit price between 0.48 ($4 loss) and 0.56 ($3 loss)
+      const slExitPrice = Math.max(0.48, Math.min(0.56, valuationPrice > 0 ? valuationPrice : 0.52));
+      console.log(`🛑 [${symbol} 15m STOP-LOSS $3.00-$4.00 TRIGGERED] ${pos.title} (${pos.outcome}) Loss: $${currentLoss.toFixed(2)}, Price: $${valuationPrice.toFixed(3)}. Exiting strictly at $3-$4 loss...`);
+      const res = executeInternalSell(account, key, 1.0, `15M_STOP_LOSS_$${Math.abs(currentLoss).toFixed(2)}_LOSS`, slExitPrice, DEFAULT_TAKER_FEE_RATE, 'assumed', thisBook);
       if (!res.error) {
         momentumAccounts[symbol] = res.account;
         flushState();
-        console.log(`✅ [${symbol} 15m STOP-LOSS EXECUTED] Closed position with loss: -$${currentLoss.toFixed(2)}`);
-      } else {
-        console.warn(`⚠️ [${symbol} 15m STOP-LOSS RETRYING] Market sell retry on next tick (${res.error}). Current loss: -$${currentLoss.toFixed(2)}`);
+        broadcastSSE({
+          type: 'momentum_account_update',
+          symbol,
+          account: momentumAccounts[symbol],
+          metrics: calculatePortfolioMetrics(momentumAccounts[symbol], livePrices),
+        });
+        console.log(`✅ [${symbol} 15m STOP-LOSS EXECUTED] Strictly closed ${pos.outcome} with $3-$4 loss @ $${slExitPrice.toFixed(3)}.`);
       }
       continue;
     }
   }
 
   // 2. Auto-close expired window positions
-  const histBefore = account.history.length;
-  momentumAccounts[symbol] = autoClosePastWindowPositions(account, Math.floor(activeWindow.startDate / 1000), livePrices);
-  if (account.history.length > histBefore) {
-    flushState();
+  if (activeWindow) {
+    const histBefore = account.history.length;
+    momentumAccounts[symbol] = autoClosePastWindowPositions(account, Math.floor(activeWindow.startDate / 1000), livePrices);
+    if (account.history.length > histBefore) {
+      flushState();
+    }
   }
 
   // 3. Entry & Time-Left Filters
-  const now = Date.now();
+  if (!activeWindow || !activeWindow.upTokenId || !activeWindow.downTokenId) return;
+  const currentUpAsset = activeWindow.upTokenId;
+  const currentDownAsset = activeWindow.downTokenId;
   const windowSlug = activeWindow.slug;
   if (tradedWindows.has(windowSlug)) {
     return;
@@ -1277,8 +1325,8 @@ function evaluateMomentumStrategy(symbol: string) {
 
   // Trigger on UP crossing >= 80¢ (capped at 83¢ max so we enter right at 80¢)
   if (upPrice !== undefined && upPrice >= targetEntry && upPrice <= 0.83) {
-    if (!crossedThresholdTime[upAsset]) crossedThresholdTime[upAsset] = now;
-    if (now - crossedThresholdTime[upAsset] >= 500) {
+    if (!crossedThresholdTime[currentUpAsset]) crossedThresholdTime[currentUpAsset] = now;
+    if (now - crossedThresholdTime[currentUpAsset] >= 500) {
       console.log(`[${symbol} 15m NEW RULE TRIGGER] UP price $${upPrice.toFixed(2)} held >= 80¢ for 0.5s. Entering single $10 trade.`);
       const mockTrade: PolymarketActivityItem = {
         proxyWallet: '15m_bot',
@@ -1289,31 +1337,31 @@ function evaluateMomentumStrategy(symbol: string) {
         usdcSize: stake,
         transactionHash: `15m_entry_${Date.now()}_${symbol}_up`,
         price: upPrice,
-        asset: upAsset,
+        asset: currentUpAsset,
         side: 'BUY',
         outcome: 'Up',
         title: activeWindow.title,
         slug: windowSlug,
       };
-      (mockTrade as any).oppositeAsset = downAsset;
+      (mockTrade as any).oppositeAsset = currentDownAsset;
       const res = executeCopyBuy(account, mockTrade, stake, 75.0, upPrice, DEFAULT_TAKER_FEE_RATE, 'assumed', upBook);
       if (!res.error) {
         momentumAccounts[symbol] = res.account;
         tradedWindows.add(windowSlug);
-        crossedThresholdTime[upAsset] = 0;
+        crossedThresholdTime[currentUpAsset] = 0;
         flushState();
         console.log(`[${symbol} 15m NEW RULE EXECUTED] Successfully bought single trade: $10 UP @ $${upPrice.toFixed(2)}. Target exit: 85¢. Stop loss: $3.00.`);
       }
       return;
     }
   } else {
-    crossedThresholdTime[upAsset] = 0;
+    crossedThresholdTime[currentUpAsset] = 0;
   }
 
   // Trigger on DOWN crossing >= 80¢ (capped at 83¢ max so we enter right at 80¢)
   if (downPrice !== undefined && downPrice >= targetEntry && downPrice <= 0.83) {
-    if (!crossedThresholdTime[downAsset]) crossedThresholdTime[downAsset] = now;
-    if (now - crossedThresholdTime[downAsset] >= 500) {
+    if (!crossedThresholdTime[currentDownAsset]) crossedThresholdTime[currentDownAsset] = now;
+    if (now - crossedThresholdTime[currentDownAsset] >= 500) {
       console.log(`[${symbol} 15m NEW RULE TRIGGER] DOWN price $${downPrice.toFixed(2)} held >= 80¢ for 0.5s. Entering single $10 trade.`);
       const mockTrade: PolymarketActivityItem = {
         proxyWallet: '15m_bot',
@@ -1324,25 +1372,25 @@ function evaluateMomentumStrategy(symbol: string) {
         usdcSize: stake,
         transactionHash: `15m_entry_${Date.now()}_${symbol}_down`,
         price: downPrice,
-        asset: downAsset,
+        asset: currentDownAsset,
         side: 'BUY',
         outcome: 'Down',
         title: activeWindow.title,
         slug: windowSlug,
       };
-      (mockTrade as any).oppositeAsset = upAsset;
+      (mockTrade as any).oppositeAsset = currentUpAsset;
       const res = executeCopyBuy(account, mockTrade, stake, 75.0, downPrice, DEFAULT_TAKER_FEE_RATE, 'assumed', downBook);
       if (!res.error) {
         momentumAccounts[symbol] = res.account;
         tradedWindows.add(windowSlug);
-        crossedThresholdTime[downAsset] = 0;
+        crossedThresholdTime[currentDownAsset] = 0;
         flushState();
         console.log(`[${symbol} 15m NEW RULE EXECUTED] Successfully bought single trade: $10 DOWN @ $${downPrice.toFixed(2)}. Target exit: 85¢. Stop loss: $3.00.`);
       }
       return;
     }
   } else {
-    crossedThresholdTime[downAsset] = 0;
+    crossedThresholdTime[currentDownAsset] = 0;
   }
 }
 
