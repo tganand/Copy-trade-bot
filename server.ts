@@ -721,47 +721,41 @@ setInterval(() => {
 
 let reconnectTimeout: NodeJS.Timeout | null = null;
 
-// REST market price snapshot poller: supplies baseline prices if WS book has not arrived yet
+// Real-time Polymarket CLOB price poller (queries clob.polymarket.com/midpoint & price directly, same API used by TradeLabs)
 setInterval(async () => {
-  const windowsToPoll = [
-    activeBtcWindow,
-    activeMomentumWindows['BTC'],
-  ].filter(Boolean) as ActiveBtcWindow[];
+  const activeWin = activeMomentumWindows['BTC'];
+  if (!activeWin || !activeWin.upTokenId || !activeWin.downTokenId) return;
 
-  for (const win of windowsToPoll) {
-    if (!win || !win.slug) continue;
-    try {
-      const res = await fetch(`https://gamma-api.polymarket.com/events?slug=${win.slug}`, {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-      });
-      if (res.ok) {
-        const data = (await res.json()) as any[];
-        if (Array.isArray(data) && data.length > 0 && Array.isArray(data[0].markets) && data[0].markets.length > 0) {
-          const m = data[0].markets[0];
-          let clobTokens: string[] = [];
-          if (m.clobTokenIds) {
-            clobTokens = typeof m.clobTokenIds === 'string' ? JSON.parse(m.clobTokenIds) : m.clobTokenIds;
-          }
-          const prices = m.outcomePrices ? (typeof m.outcomePrices === 'string' ? JSON.parse(m.outcomePrices) : m.outcomePrices) : [];
+  const upId = activeWin.upTokenId;
+  const downId = activeWin.downTokenId;
 
-          if (clobTokens.length >= 2 && prices.length >= 2) {
-            const upAsset = clobTokens[0];
-            const downAsset = clobTokens[1];
-            const upPrice = parseFloat(prices[0]) || 0.5;
-            const downPrice = parseFloat(prices[1]) || 0.5;
+  try {
+    const [upMidRes, downMidRes, upBidRes, upAskRes, downBidRes, downAskRes] = await Promise.all([
+      fetch(`https://clob.polymarket.com/midpoint?token_id=${upId}`, { headers: { 'User-Agent': 'Mozilla/5.0' } }).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`https://clob.polymarket.com/midpoint?token_id=${downId}`, { headers: { 'User-Agent': 'Mozilla/5.0' } }).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`https://clob.polymarket.com/price?token_id=${upId}&side=sell`, { headers: { 'User-Agent': 'Mozilla/5.0' } }).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`https://clob.polymarket.com/price?token_id=${upId}&side=buy`, { headers: { 'User-Agent': 'Mozilla/5.0' } }).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`https://clob.polymarket.com/price?token_id=${downId}&side=sell`, { headers: { 'User-Agent': 'Mozilla/5.0' } }).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`https://clob.polymarket.com/price?token_id=${downId}&side=buy`, { headers: { 'User-Agent': 'Mozilla/5.0' } }).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]);
 
-            // Always sync fresh outcomePrices directly into window state:
-            win.outcomePrices = [upPrice, downPrice];
+    const now = Date.now();
+    const upMid = upMidRes && upMidRes.mid ? parseFloat(upMidRes.mid) : null;
+    const downMid = downMidRes && downMidRes.mid ? parseFloat(downMidRes.mid) : null;
+    const upBid = upBidRes && upBidRes.price ? parseFloat(upBidRes.price) : null;
+    const upAsk = upAskRes && upAskRes.price ? parseFloat(upAskRes.price) : null;
+    const downBid = downBidRes && downBidRes.price ? parseFloat(downBidRes.price) : null;
+    const downAsk = downAskRes && downAskRes.price ? parseFloat(downAskRes.price) : null;
 
-            const now = Date.now();
-            processPriceUpdate(upAsset, upPrice, upPrice, upPrice, now, now);
-            processPriceUpdate(downAsset, downPrice, downPrice, downPrice, now, now);
-          }
-        }
-      }
-    } catch {}
-  }
-}, 1200);
+    if (upMid !== null && upMid > 0) {
+      processPriceUpdate(upId, upMid, upBid || upMid, upAsk || upMid, now, now);
+      activeWin.outcomePrices = [upMid, downMid !== null ? downMid : Number((1.0 - upMid).toFixed(4))];
+    }
+    if (downMid !== null && downMid > 0) {
+      processPriceUpdate(downId, downMid, downBid || downMid, downAsk || downMid, now, now);
+    }
+  } catch {}
+}, 500);
 
 function connectClobWebSocket() {
   if (reconnectTimeout) {
@@ -1198,59 +1192,43 @@ function evaluateMomentumStrategy(symbol: string) {
   const upBook = upAsset ? marketBooks[upAsset] : undefined;
   const downBook = downAsset ? marketBooks[downAsset] : undefined;
 
-  const upPrice = (upBook && upBook.bestAsk > 0) ? upBook.bestAsk : ((upBook && upBook.bestBid > 0) ? upBook.bestBid : ((upBook && upBook.lastPrice > 0) ? upBook.lastPrice : (activeWindow?.outcomePrices?.[0] || (upAsset ? livePrices[upAsset] : 0.5))));
-  const downPrice = (downBook && downBook.bestAsk > 0) ? downBook.bestAsk : ((downBook && downBook.bestBid > 0) ? downBook.bestBid : ((downBook && downBook.lastPrice > 0) ? downBook.lastPrice : (activeWindow?.outcomePrices?.[1] || (downAsset ? livePrices[downAsset] : 0.5))));
+  const upPrice = (upBook && upBook.bestAsk > 0) ? upBook.bestAsk : ((upBook && upBook.bestBid > 0) ? upBook.bestBid : ((upBook && upBook.lastPrice > 0) ? upBook.lastPrice : (activeWindow?.outcomePrices?.[0] || (upAsset ? livePrices[upAsset] : undefined))));
+  const downPrice = (downBook && downBook.bestAsk > 0) ? downBook.bestAsk : ((downBook && downBook.bestBid > 0) ? downBook.bestBid : ((downBook && downBook.lastPrice > 0) ? downBook.lastPrice : (activeWindow?.outcomePrices?.[1] || (downAsset ? livePrices[downAsset] : undefined))));
 
-  // 1. Strict Risk Management on all existing open positions (85¢ EXIT ON THE SPOT & $3.00 TO $4.00 STOP LOSS)
+  // 1. Strict Risk Management on all existing open positions (85¢ EXIT ON THE SPOT & $3.00 STOP LOSS)
   for (const [key, pos] of Object.entries(account.positions)) {
     const isUp = pos.outcome.toUpperCase() === 'UP';
     const thisAsset = pos.asset;
     const thisBook = marketBooks[thisAsset];
 
-    // Gather price signals across all channels
-    const directBid = thisBook && thisBook.bestBid > 0 ? thisBook.bestBid : 0;
-    const directAsk = thisBook && thisBook.bestAsk > 0 ? thisBook.bestAsk : 0;
-    const lastP = thisBook && thisBook.lastPrice > 0 ? thisBook.lastPrice : 0;
-    const cachedLive = (livePrices[key] && livePrices[key] > 0) ? livePrices[key] : ((livePrices[thisAsset] && livePrices[thisAsset] > 0) ? livePrices[thisAsset] : 0);
+    // Real live price signals strictly from CLOB order book and live stream
+    const bestBid = thisBook && thisBook.bestBid > 0 ? thisBook.bestBid : 0;
+    const bestAsk = thisBook && thisBook.bestAsk > 0 ? thisBook.bestAsk : 0;
+    const lastPrice = thisBook && thisBook.lastPrice > 0 ? thisBook.lastPrice : 0;
+    const gammaPrice = (activeWindow && (activeWindow.slug === pos.slug || activeWindow.conditionId === pos.conditionId) && activeWindow.outcomePrices && activeWindow.outcomePrices.length >= 2)
+      ? (isUp ? activeWindow.outcomePrices[0] : activeWindow.outcomePrices[1])
+      : 0;
 
-    let windowPrice = 0;
-    let oppositePrice = 0;
-    if (activeWindow && (activeWindow.slug === pos.slug || activeWindow.conditionId === pos.conditionId)) {
-      windowPrice = isUp ? (upPrice || 0) : (downPrice || 0);
-      oppositePrice = isUp ? (downPrice || 0) : (upPrice || 0);
-      if (activeWindow.outcomePrices && activeWindow.outcomePrices.length >= 2) {
-        const gammaP = isUp ? activeWindow.outcomePrices[0] : activeWindow.outcomePrices[1];
-        if (gammaP > windowPrice) windowPrice = gammaP;
-      }
-    }
+    // Real price: genuine live quote (no synthetic or 0.50 fake defaults)
+    const realPrice = bestBid > 0 ? bestBid : (lastPrice > 0 ? lastPrice : (bestAsk > 0 ? bestAsk : (gammaPrice > 0 ? gammaPrice : (pos.currentPrice > 0 ? pos.currentPrice : pos.entryPrice))));
+    if (!realPrice || realPrice <= 0) continue;
 
-    const impliedFromOpposite = oppositePrice > 0 ? Math.max(0, 1.0 - oppositePrice) : 0;
+    // Keep position telemetry up to date with real price
+    pos.currentPrice = realPrice;
+    pos.currentValue = Number((pos.shares * realPrice).toFixed(4));
+    pos.unrealizedPnl = Number((pos.currentValue - pos.totalCost).toFixed(4));
+    pos.unrealizedPnlPercent = Number((((realPrice - pos.entryPrice) / (pos.entryPrice || 1)) * 100).toFixed(2));
 
-    // Highest price reached across all data streams:
-    const highestPrice = Math.max(directAsk, lastP, directBid, cachedLive, windowPrice, impliedFromOpposite, pos.currentPrice || 0);
+    const realLoss = Number((pos.totalCost - pos.currentValue).toFixed(4));
+    const nowMs = Date.now();
+    const positionAgeSec = pos.openedAt > 0 ? (nowMs / 1000 - pos.openedAt) : 999;
 
-    // Executable bid (prioritize real bid, then last trade, then window price):
-    const executableBid = directBid > 0 ? directBid : (lastP > 0 ? lastP : (windowPrice > 0 ? windowPrice : (cachedLive > 0 ? cachedLive : pos.entryPrice)));
-
-    // Current valuation & loss
-    const valuationPrice = executableBid > 0 ? executableBid : (highestPrice > 0 ? highestPrice : pos.entryPrice);
-    const currentValue = Number((pos.shares * valuationPrice).toFixed(4));
-    const currentLoss = Number((pos.totalCost - currentValue).toFixed(4));
-    const unrealizedPnl = Number((currentValue - pos.totalCost).toFixed(4));
-    const pnlPercent = Number((((valuationPrice - pos.entryPrice) / (pos.entryPrice || 1)) * 100).toFixed(2));
-
-    // Update position telemetry
-    pos.currentPrice = valuationPrice;
-    pos.currentValue = currentValue;
-    pos.unrealizedPnl = unrealizedPnl;
-    pos.unrealizedPnlPercent = pnlPercent;
-
-    // A. TAKE-PROFIT: Strictly Exit on 85¢ ON THE SPOT
-    const targetTp = config.takeProfitPrice || 0.85;
-    if (highestPrice >= 0.85 || valuationPrice >= 0.85 || highestPrice >= targetTp || (oppositePrice > 0 && oppositePrice <= 0.15)) {
-      const tpExitPrice = Math.max(0.85, valuationPrice);
-      console.log(`🎯 [${symbol} 15m TAKE-PROFIT 85¢ ON THE SPOT] ${pos.title} (${pos.outcome}) price reached $${highestPrice.toFixed(3)} >= 85¢. Exiting immediately.`);
-      const res = executeInternalSell(account, key, 1.0, 'TAKE_PROFIT_85¢_SPOT', tpExitPrice, DEFAULT_TAKER_FEE_RATE, 'assumed', thisBook);
+    // A. TAKE-PROFIT: Exit strictly on 85¢ on the spot
+    // Triggers if real price (bid, ask, or last traded price) hits or crosses 85¢
+    const isTakeProfit = realPrice >= 0.85 || bestBid >= 0.85 || lastPrice >= 0.85 || (bestAsk >= 0.85 && positionAgeSec >= 1);
+    if (isTakeProfit) {
+      console.log(`🎯 [${symbol} 15m TAKE-PROFIT 85¢ ON THE SPOT] ${pos.title} (${pos.outcome}) Real Price: $${realPrice.toFixed(3)} >= 85¢. Exiting immediately.`);
+      const res = executeInternalSell(account, key, 1.0, 'TAKE_PROFIT_85¢_SPOT', realPrice, DEFAULT_TAKER_FEE_RATE, 'assumed', thisBook);
       if (!res.error) {
         momentumAccounts[symbol] = res.account;
         flushState();
@@ -1260,28 +1238,18 @@ function evaluateMomentumStrategy(symbol: string) {
           account: momentumAccounts[symbol],
           metrics: calculatePortfolioMetrics(momentumAccounts[symbol], livePrices),
         });
-        console.log(`✅ [${symbol} 15m TAKE-PROFIT 85¢ EXECUTED] Closed ${pos.outcome} on the spot @ $${tpExitPrice.toFixed(3)}.`);
+        console.log(`✅ [${symbol} 15m TAKE-PROFIT 85¢ EXECUTED] Closed ${pos.outcome} @ $${realPrice.toFixed(3)}.`);
       }
       continue;
     }
 
-    // B. STOP-LOSS: Strictly Exit at $3.00 to $4.00 LOSS
-    // Triggers when:
-    // 1) currentLoss >= $3.00 (or unrealizedPnl <= -$3.00)
-    // 2) Valuation price drops to <= 56¢ (which is $3.00 loss on 12.5 shares)
-    // 3) Opposite side has rallied to >= 44¢ (which means our side is <= 56¢)
-    // 4) PnL drops to <= -30% (-$3.00 on a $10 position)
-    const isStopTriggered = currentLoss >= 3.00 ||
-      unrealizedPnl <= -3.00 ||
-      valuationPrice <= 0.56 ||
-      (oppositePrice > 0 && oppositePrice >= 0.44) ||
-      pnlPercent <= -30.0;
-
-    if (isStopTriggered) {
-      // Strictly clamp exit price between 0.48 ($4 loss) and 0.56 ($3 loss)
-      const slExitPrice = Math.max(0.48, Math.min(0.56, valuationPrice > 0 ? valuationPrice : 0.52));
-      console.log(`🛑 [${symbol} 15m STOP-LOSS $3.00-$4.00 TRIGGERED] ${pos.title} (${pos.outcome}) Loss: $${currentLoss.toFixed(2)}, Price: $${valuationPrice.toFixed(3)}. Exiting strictly at $3-$4 loss...`);
-      const res = executeInternalSell(account, key, 1.0, `15M_STOP_LOSS_$${Math.abs(currentLoss).toFixed(2)}_LOSS`, slExitPrice, DEFAULT_TAKER_FEE_RATE, 'assumed', thisBook);
+    // B. STOP-LOSS: $3.00 LOSS
+    // Triggers ONLY if real loss >= $3.00 (i.e. realPrice <= entryPrice - (3.00 / shares))
+    // AND ensures the trade has been open for at least 2 seconds so it never fake closes on entry!
+    const isStopLoss = positionAgeSec >= 2 && (realLoss >= 3.00 || pos.unrealizedPnl <= -3.00);
+    if (isStopLoss) {
+      console.log(`🛑 [${symbol} 15m STOP-LOSS $3.00 TRIGGERED] ${pos.title} (${pos.outcome}) Real Loss: $${realLoss.toFixed(2)}, Real Price: $${realPrice.toFixed(3)}. Exiting at market...`);
+      const res = executeInternalSell(account, key, 1.0, `15M_STOP_LOSS_$${Math.abs(realLoss).toFixed(2)}_LOSS`, realPrice, DEFAULT_TAKER_FEE_RATE, 'assumed', thisBook);
       if (!res.error) {
         momentumAccounts[symbol] = res.account;
         flushState();
@@ -1291,7 +1259,7 @@ function evaluateMomentumStrategy(symbol: string) {
           account: momentumAccounts[symbol],
           metrics: calculatePortfolioMetrics(momentumAccounts[symbol], livePrices),
         });
-        console.log(`✅ [${symbol} 15m STOP-LOSS EXECUTED] Strictly closed ${pos.outcome} with $3-$4 loss @ $${slExitPrice.toFixed(3)}.`);
+        console.log(`✅ [${symbol} 15m STOP-LOSS EXECUTED] Closed ${pos.outcome} with real loss -$${Math.abs(realLoss).toFixed(2)} @ $${realPrice.toFixed(3)}.`);
       }
       continue;
     }

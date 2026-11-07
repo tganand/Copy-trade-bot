@@ -674,7 +674,7 @@ export const MomentumPanel: React.FC<MomentumPanelProps> = ({
             <p className="text-xs text-slate-400 mt-0.5">Live strategy rules, risk parameters, and recent updates deployed to the bot.</p>
           </div>
           <span className="text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono font-bold">
-            V3.1 Production Live
+            V3.2 Production Live
           </span>
         </div>
 
@@ -688,15 +688,15 @@ export const MomentumPanel: React.FC<MomentumPanelProps> = ({
           </div>
           <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-1.5">
             <div className="font-bold text-emerald-400 flex items-center gap-1.5">
-              <span>⚡</span> 85¢ Strict Exit On The Spot
+              <span>⚡</span> 85¢ Exit On The Spot
             </div>
-            <p className="text-slate-400">Instantly sells 100% of the position on the spot at <strong>85¢</strong> when market touches 85¢ on asks, bids, last trade, or gamma feed.</p>
+            <p className="text-slate-400">Instantly sells 100% of the position on the spot when live CLOB order book price genuinely reaches <strong>85¢</strong>.</p>
           </div>
           <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-1.5">
             <div className="font-bold text-rose-400 flex items-center gap-1.5">
-              <span>🛑</span> $3.00–$4.00 Strict Stop Loss
+              <span>🛑</span> $3.00 Real Stop Loss
             </div>
-            <p className="text-slate-400">Strictly exits when loss reaches <strong>$3.00</strong> (or price drops to 56¢, or opposite surges to 44¢), locking in exactly <strong>-$3.00 to -$4.00 loss</strong>.</p>
+            <p className="text-slate-400">Strictly exits when actual position loss reaches <strong>$3.00</strong>. No synthetic price forcing or immediate fake closes on entry.</p>
           </div>
           <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-1.5">
             <div className="font-bold text-blue-400 flex items-center gap-1.5">
@@ -715,15 +715,28 @@ export const MomentumPanel: React.FC<MomentumPanelProps> = ({
             <div className="p-3.5 space-y-1">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-emerald-400 flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono">V3.1</span>
-                  Strict 85¢ Spot Exit & Guaranteed $3.00–$4.00 Stop Loss Execution
+                  <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono">V3.2</span>
+                  Real-Time Polymarket CLOB Midpoint & Elimination of Fake Closes
                 </span>
                 <span className="text-[10px] text-slate-500 font-mono">Latest Update</span>
               </div>
               <ul className="text-slate-400 space-y-1 list-disc list-inside text-[11px] pl-1">
-                <li><strong>Fixed 85¢ Exit Delay:</strong> Aggregated multi-stream pricing across CLOB asks, bids, last trade prices, and gamma REST feeds. The moment any stream touches 85¢, the bot instantly liquidates 100% on the spot at 85¢ (no longer waiting for lower bids or holding until resolution).</li>
-                <li><strong>Guaranteed $3.00 to $4.00 Stop Loss:</strong> Position is strictly closed when loss reaches $3.00 (or valuation falls to 56¢, or opposite contract surges to 44¢). Exit price is strictly enforced between 48¢ and 56¢ to deliver an exact -$3.00 to -$4.00 loss without hanging.</li>
-                <li><strong>Continuous 50ms Decoupled Evaluation:</strong> Open position risk management now executes every 50ms regardless of window transitions or re-polling events.</li>
+                <li><strong>Integrated Official Polymarket CLOB Endpoints:</strong> Switched price polling to <code>clob.polymarket.com/midpoint</code> and <code>/price?side=sell&buy</code> every 500ms (the exact live order book API used by TradeLabs AI and Polymarket), bypassing stale 5-minute Gamma caching.</li>
+                <li><strong>Eliminated Fake Closes on Entry:</strong> Removed synthetic price overrides and 0.50 fallbacks that previously caused trades to falsely trigger stop-loss or take-profit within milliseconds of entry.</li>
+                <li><strong>Genuinely Verified Exits:</strong> 85¢ take profit triggers on real CLOB bid/ask quotes. Stop-loss triggers only when genuine real market loss reaches $3.00 with entry debounce protection.</li>
+              </ul>
+            </div>
+
+            <div className="p-3.5 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-300 flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] font-mono">V3.1</span>
+                  50ms Decoupled Risk Engine
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono">Previous Update</span>
+              </div>
+              <ul className="text-slate-400 space-y-1 list-disc list-inside text-[11px] pl-1">
+                <li>Decoupled open position risk management from window lifecycle.</li>
               </ul>
             </div>
 

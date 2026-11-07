@@ -938,28 +938,8 @@ export function executeInternalSell(
     }
   }
 
-  // REALISTIC MARKET STOP-LOSS & TAKE-PROFIT ENFORCEMENT:
-  // Strictly enforce 85¢ on-the-spot take profit (exit price >= 0.85)
-  if (reason.includes('85¢') || reason === 'TAKE_PROFIT_85¢_SPOT') {
-    if (weightedExitPrice < 0.85) {
-      weightedExitPrice = 0.85;
-      totalProceeds = Number((sharesToSell * weightedExitPrice).toFixed(4));
-    }
-  }
-
-  // Strictly enforce $3.00 to $4.00 stop loss (exit price between 48¢ and 56¢ on $10 trade)
-  if (reason.startsWith('15M_STOP_LOSS') || reason.includes('_LOSS')) {
-    const minExitPrice = 0.48; // $4.00 loss on 12.5 shares
-    const maxExitPrice = 0.56; // $3.00 loss on 12.5 shares
-    if (weightedExitPrice < minExitPrice) {
-      weightedExitPrice = minExitPrice;
-      totalProceeds = Number((sharesToSell * weightedExitPrice).toFixed(4));
-    } else if (weightedExitPrice > maxExitPrice) {
-      weightedExitPrice = maxExitPrice;
-      totalProceeds = Number((sharesToSell * weightedExitPrice).toFixed(4));
-    }
-  } else if (reason.startsWith('STOP_LOSS')) {
-    const marketStopFloor = 0.50;
+  if (reason.startsWith('STOP_LOSS')) {
+    const marketStopFloor = 0.40;
     if (weightedExitPrice < marketStopFloor) {
       weightedExitPrice = Number(marketStopFloor.toFixed(4));
       totalProceeds = Number((sharesToSell * weightedExitPrice).toFixed(4));
