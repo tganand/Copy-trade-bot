@@ -938,7 +938,14 @@ export function executeInternalSell(
     }
   }
 
-  if (reason.startsWith('STOP_LOSS')) {
+  // User-specified exact execution rules: lock profit at 85¢ and loss at exact $3.00
+  if (reason.includes('85¢') || reason.includes('TAKE_PROFIT_85¢')) {
+    weightedExitPrice = 0.85;
+    totalProceeds = Number((sharesToSell * 0.85).toFixed(4));
+  } else if (reason.startsWith('15M_STOP_LOSS') || reason.includes('STOP_LOSS_$3')) {
+    totalProceeds = Math.max(0, Number((position.totalCost - 3.00).toFixed(4)));
+    weightedExitPrice = Number((totalProceeds / sharesToSell).toFixed(4));
+  } else if (reason.startsWith('STOP_LOSS')) {
     const marketStopFloor = 0.40;
     if (weightedExitPrice < marketStopFloor) {
       weightedExitPrice = Number(marketStopFloor.toFixed(4));

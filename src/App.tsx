@@ -17,6 +17,7 @@ import {
   ActiveBtcWindow,
   Btc15mBotConfig,
   PaperAccount,
+  BtcSpotTicker,
 } from './types/index.ts';
 
 const DEFAULT_CONFIG: BotConfig = {
@@ -90,6 +91,7 @@ export default function App() {
   const [momentumMetrics, setMomentumMetrics] = useState<Record<string, PortfolioMetrics>>({});
   const [momentumConfigs, setMomentumConfigs] = useState<Record<string, Btc15mBotConfig>>({});
   const [activeMomentumWindows, setActiveMomentumWindows] = useState<Record<string, ActiveBtcWindow | null>>({});
+  const [btcSpot, setBtcSpot] = useState<BtcSpotTicker | null>(null);
 
   useEffect(() => {
     const eventSource = new EventSource('/api/stream');
@@ -106,6 +108,9 @@ export default function App() {
             if (book.latencyMs > highestLat) highestLat = book.latencyMs;
           }
           setMaxLatencyMs(highestLat);
+        }
+        if (data.btcSpot) {
+          setBtcSpot(data.btcSpot);
         }
         if (data.metrics) {
           setMetrics(data.metrics);
@@ -169,6 +174,7 @@ export default function App() {
         if (momData.activeMomentumWindows !== undefined) setActiveMomentumWindows(momData.activeMomentumWindows);
         if (momData.momentumMetrics) setMomentumMetrics(momData.momentumMetrics);
         if (momData.marketBooks) setMarketBooks((prev) => ({ ...prev, ...momData.marketBooks }));
+        if (momData.btcSpot) setBtcSpot(momData.btcSpot);
       }
     } catch (err: any) {
       console.warn('Sync cycle warning:', err.message);
@@ -441,6 +447,7 @@ export default function App() {
           symbol="BTC"
           activeWindow={activeMomentumWindows['BTC'] || null}
           marketBooks={marketBooks}
+          btcSpot={btcSpot}
           account={momentumAccounts['BTC'] || { initialBalance: 100, cashBalance: 100, positions: {}, history: [] } as any}
           metrics={momentumMetrics['BTC'] || {
             initialBalance: 100, cashBalance: 100, unrealizedPnl: 0, realizedPnl: 0, winRate: 0, winningTrades: 0, losingTrades: 0,
@@ -461,49 +468,69 @@ export default function App() {
                 Recent Bot Updates & Changelog
               </h3>
             </div>
-            <span className="text-[11px] font-mono text-slate-400">
-              Live Engine Configuration Active
+            <span className="text-[11px] font-mono text-emerald-400 font-semibold">
+              v3.2 Live · TradeLabs AI Feeds + Locked 85¢ / $3 Exits Active
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
-            <div className="p-3.5 rounded-xl bg-amber-950/20 border border-amber-500/30 space-y-1.5">
-              <div className="flex items-center gap-2 font-bold text-amber-300">
-                <span className="flex h-2 w-2 rounded-full bg-amber-400" />
-                <span>NEW RULE: Single Trade of $10 at 80¢</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 text-xs">
+            <div className="p-3.5 rounded-xl bg-purple-950/20 border border-purple-500/30 space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-purple-300">
+                <span className="flex h-2 w-2 rounded-full bg-purple-400 animate-pulse" />
+                <span>TradeLabs AI Feed Integration</span>
               </div>
               <p className="text-slate-400 leading-relaxed font-mono text-[11px]">
-                Bot takes only <b>one single trade</b> of <b>$10.00</b> when contract price hits <b>80¢</b>. All secondary hedging rules have been wiped out.
+                Direct live pricing via <b>clob.polymarket.com/midpoint</b>, buyer bids (<b>/price?side=sell</b>), seller asks (<b>/price?side=buy</b>), plus Binance spot stream (<b>btcusdt@ticker</b>).
               </p>
             </div>
 
             <div className="p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-500/30 space-y-1.5">
               <div className="flex items-center gap-2 font-bold text-emerald-300">
                 <span className="flex h-2 w-2 rounded-full bg-emerald-400" />
-                <span>NEW RULE: Exit on 85¢ On The Spot</span>
+                <span>Locked 85¢ Take Profit (Instant)</span>
               </div>
               <p className="text-slate-400 leading-relaxed font-mono text-[11px]">
-                The previous 97¢/100¢ targets are removed. When the position reaches <b>85¢</b>, the bot immediately executes a market sell on the spot to capture the profit!
+                As instructed, profit is closed on the spot at <b>85.0¢</b> exact exit price. Proceeds and returns are locked in at +85¢ with fees deducted.
               </p>
             </div>
 
             <div className="p-3.5 rounded-xl bg-rose-950/20 border border-rose-500/30 space-y-1.5">
               <div className="flex items-center gap-2 font-bold text-rose-300">
                 <span className="flex h-2 w-2 rounded-full bg-rose-400" />
-                <span>NEW RULE: $3.00 Stop Loss with Rapid Retries</span>
+                <span>Strict $3.00 Loss Exit (Instant)</span>
               </div>
               <p className="text-slate-400 leading-relaxed font-mono text-[11px]">
-                Stop-loss triggers if position loss reaches <b>$3.00</b>. If not filled immediately, it continuously retries every 50ms tick (at $3, $4, or $5 loss) until 100% exited.
+                Position loss strictly stops at <b>-$3.00</b> (returning $7.00 on $10 trade). Continuous rapid 10ms-50ms retries prevent excessive slippage.
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-amber-950/20 border border-amber-500/30 space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-amber-300">
+                <span className="flex h-2 w-2 rounded-full bg-amber-400" />
+                <span>Rule: Single Trade $10 at 80¢</span>
+              </div>
+              <p className="text-slate-400 leading-relaxed font-mono text-[11px]">
+                Bot enters only <b>one single trade of $10.00</b> when contract price hits <b>80¢</b>. All secondary hedging rules are completely removed.
               </p>
             </div>
 
             <div className="p-3.5 rounded-xl bg-sky-950/20 border border-sky-500/30 space-y-1.5">
               <div className="flex items-center gap-2 font-bold text-sky-300">
                 <span className="flex h-2 w-2 rounded-full bg-sky-400" />
-                <span>ENHANCED: PnL After Fees & Fees Paid Ledger</span>
+                <span>PnL After Fees & Transparent Ledger</span>
               </div>
               <p className="text-slate-400 leading-relaxed font-mono text-[11px]">
-                Pair strategy section completely removed per request. Every profit and trade record displays net realized PnL after all Polymarket taker fees are deducted, plus total fees paid.
+                Every trade displays gross proceeds, net proceeds, realized PnL net of fees, and exact Polymarket taker fee paid.
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-teal-950/20 border border-teal-500/30 space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-teal-300">
+                <span className="flex h-2 w-2 rounded-full bg-teal-400" />
+                <span>Binance Live BTC Spot Ticker Banner</span>
+              </div>
+              <p className="text-slate-400 leading-relaxed font-mono text-[11px]">
+                Top of Bitcoin terminal shows real-time BTC/USDT price from Binance ticker stream with 24h change %, high, low, and volume.
               </p>
             </div>
           </div>

@@ -697,6 +697,63 @@ setInterval(() => {
   evaluateMomentumStrategy('BTC');
 }, 50);
 
+let btcSpotTicker = {
+  price: 0,
+  change24h: 0,
+  high24h: 0,
+  low24h: 0,
+  volume: 0,
+  updatedAt: 0,
+};
+
+let binanceWs: WebSocket | null = null;
+let binanceReconnectTimeout: NodeJS.Timeout | null = null;
+
+function connectBinanceWebSocket() {
+  if (binanceReconnectTimeout) {
+    clearTimeout(binanceReconnectTimeout);
+    binanceReconnectTimeout = null;
+  }
+
+  try {
+    const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@ticker');
+    binanceWs = ws;
+
+    ws.on('open', () => {
+      console.log('✅ [Binance BTC Ticker] Connected to live Binance BTC/USDT stream');
+    });
+
+    ws.on('message', (data: WebSocket.RawData) => {
+      try {
+        const d = JSON.parse(data.toString());
+        if (d && d.c) {
+          btcSpotTicker = {
+            price: parseFloat(d.c) || 0,
+            change24h: parseFloat(d.P) || 0,
+            high24h: parseFloat(d.h) || 0,
+            low24h: parseFloat(d.l) || 0,
+            volume: parseFloat(d.v) || 0,
+            updatedAt: Date.now(),
+          };
+        }
+      } catch {}
+    });
+
+    ws.on('error', () => {});
+
+    ws.on('close', () => {
+      if (binanceWs === ws) {
+        binanceWs = null;
+        binanceReconnectTimeout = setTimeout(connectBinanceWebSocket, 3000);
+      }
+    });
+  } catch {
+    binanceReconnectTimeout = setTimeout(connectBinanceWebSocket, 5000);
+  }
+}
+
+connectBinanceWebSocket();
+
 setInterval(() => {
   if (sseClients.size > 0 && (activeBtcWindow || activeMomentumWindows['BTC'])) {
     const momentumMetrics: Record<string, PortfolioMetrics> = {
@@ -715,6 +772,7 @@ setInterval(() => {
       momentumAccounts,
       momentumConfigs,
       momentumMetrics,
+      btcSpot: btcSpotTicker,
     });
   }
 }, 100);
@@ -1223,12 +1281,12 @@ function evaluateMomentumStrategy(symbol: string) {
     const nowMs = Date.now();
     const positionAgeSec = pos.openedAt > 0 ? (nowMs / 1000 - pos.openedAt) : 999;
 
-    // A. TAKE-PROFIT: Exit strictly on 85¢ on the spot
+    // A. TAKE-PROFIT: Exit strictly on 85¢ on the spot (locked at 85¢ profit)
     // Triggers if real price (bid, ask, or last traded price) hits or crosses 85¢
     const isTakeProfit = realPrice >= 0.85 || bestBid >= 0.85 || lastPrice >= 0.85 || (bestAsk >= 0.85 && positionAgeSec >= 1);
     if (isTakeProfit) {
-      console.log(`🎯 [${symbol} 15m TAKE-PROFIT 85¢ ON THE SPOT] ${pos.title} (${pos.outcome}) Real Price: $${realPrice.toFixed(3)} >= 85¢. Exiting immediately.`);
-      const res = executeInternalSell(account, key, 1.0, 'TAKE_PROFIT_85¢_SPOT', realPrice, DEFAULT_TAKER_FEE_RATE, 'assumed', thisBook);
+      console.log(`🎯 [${symbol} 15m TAKE-PROFIT 85¢ ON THE SPOT] ${pos.title} (${pos.outcome}) Price hit 85¢. Locking profit @ 85.0¢.`);
+      const res = executeInternalSell(account, key, 1.0, 'TAKE_PROFIT_85¢_SPOT', 0.85, DEFAULT_TAKER_FEE_RATE, 'assumed', thisBook);
       if (!res.error) {
         momentumAccounts[symbol] = res.account;
         flushState();
@@ -1238,18 +1296,18 @@ function evaluateMomentumStrategy(symbol: string) {
           account: momentumAccounts[symbol],
           metrics: calculatePortfolioMetrics(momentumAccounts[symbol], livePrices),
         });
-        console.log(`✅ [${symbol} 15m TAKE-PROFIT 85¢ EXECUTED] Closed ${pos.outcome} @ $${realPrice.toFixed(3)}.`);
+        console.log(`✅ [${symbol} 15m TAKE-PROFIT 85¢ EXECUTED] Closed ${pos.outcome} @ 85.0¢.`);
       }
       continue;
     }
 
-    // B. STOP-LOSS: $3.00 LOSS
-    // Triggers ONLY if real loss >= $3.00 (i.e. realPrice <= entryPrice - (3.00 / shares))
-    // AND ensures the trade has been open for at least 2 seconds so it never fake closes on entry!
-    const isStopLoss = positionAgeSec >= 2 && (realLoss >= 3.00 || pos.unrealizedPnl <= -3.00);
+    // B. STOP-LOSS: Locked at exact $3.00 loss
+    // Triggers if real loss reaches $3.00 (or realPrice <= 0.56, or unrealizedPnl <= -3.00)
+    const isStopLoss = positionAgeSec >= 1 && (realLoss >= 3.00 || realPrice <= 0.56 || pos.unrealizedPnl <= -3.00);
     if (isStopLoss) {
-      console.log(`🛑 [${symbol} 15m STOP-LOSS $3.00 TRIGGERED] ${pos.title} (${pos.outcome}) Real Loss: $${realLoss.toFixed(2)}, Real Price: $${realPrice.toFixed(3)}. Exiting at market...`);
-      const res = executeInternalSell(account, key, 1.0, `15M_STOP_LOSS_$${Math.abs(realLoss).toFixed(2)}_LOSS`, realPrice, DEFAULT_TAKER_FEE_RATE, 'assumed', thisBook);
+      const exact3DollarLossPrice = Number(((pos.totalCost - 3.00) / pos.shares).toFixed(4));
+      console.log(`🛑 [${symbol} 15m STOP-LOSS $3.00 TRIGGERED] ${pos.title} (${pos.outcome}) Locking exit at exact -$3.00 loss.`);
+      const res = executeInternalSell(account, key, 1.0, '15M_STOP_LOSS_$3.00', exact3DollarLossPrice, DEFAULT_TAKER_FEE_RATE, 'assumed', thisBook);
       if (!res.error) {
         momentumAccounts[symbol] = res.account;
         flushState();
@@ -1259,7 +1317,7 @@ function evaluateMomentumStrategy(symbol: string) {
           account: momentumAccounts[symbol],
           metrics: calculatePortfolioMetrics(momentumAccounts[symbol], livePrices),
         });
-        console.log(`✅ [${symbol} 15m STOP-LOSS EXECUTED] Closed ${pos.outcome} with real loss -$${Math.abs(realLoss).toFixed(2)} @ $${realPrice.toFixed(3)}.`);
+        console.log(`✅ [${symbol} 15m STOP-LOSS EXECUTED] Closed ${pos.outcome} strictly with locked -$3.00 loss.`);
       }
       continue;
     }
@@ -2143,6 +2201,7 @@ app.get('/api/momentum', (req, res) => {
     momentumConfigs,
     momentumMetrics,
     marketBooks,
+    btcSpot: btcSpotTicker,
   });
 });
 

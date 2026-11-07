@@ -19,6 +19,7 @@ import {
   Btc15mBotConfig,
   PaperAccount,
   PortfolioMetrics,
+  BtcSpotTicker,
 } from '../types/index.ts';
 import { AiAuditorModal } from './AiAuditorModal.tsx';
 
@@ -29,6 +30,7 @@ interface MomentumPanelProps {
   account: PaperAccount;
   metrics: PortfolioMetrics;
   config: Btc15mBotConfig;
+  btcSpot?: BtcSpotTicker | null;
   onResetAccount: () => void;
   onClosePosition: (positionId: string) => void;
 }
@@ -40,6 +42,7 @@ export const MomentumPanel: React.FC<MomentumPanelProps> = ({
   account,
   metrics,
   config,
+  btcSpot,
   onResetAccount,
   onClosePosition,
 }) => {
@@ -231,6 +234,33 @@ export const MomentumPanel: React.FC<MomentumPanelProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Live Binance BTC Spot Ticker & Polymarket CLOB Status (TradeLabs AI Live Feed) */}
+        {btcSpot && btcSpot.price > 0 && (
+          <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 font-semibold uppercase text-[11px]">Binance BTC/USDT Spot:</span>
+                <span className="text-base font-black font-mono text-amber-400">
+                  ${btcSpot.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <span className={`px-2 py-0.5 rounded font-mono font-bold text-[10px] ${btcSpot.change24h >= 0 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}`}>
+                  {btcSpot.change24h >= 0 ? '+' : ''}{btcSpot.change24h.toFixed(2)}%
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 font-mono text-[11px] text-slate-400">
+              <span>24h H: <b className="text-slate-200">${btcSpot.high24h.toLocaleString(undefined, { minimumFractionDigits: 1 })}</b></span>
+              <span>·</span>
+              <span>24h L: <b className="text-slate-200">${btcSpot.low24h.toLocaleString(undefined, { minimumFractionDigits: 1 })}</b></span>
+              <span>·</span>
+              <span className="px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-400 font-bold flex items-center gap-1">
+                <span>⚡</span> CLOB Live Midpoint Feed
+              </span>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-3 pt-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -245,6 +245,11 @@ export interface Btc15mBotConfig {
   stopLossDollars: number; // $3.00 loss
 }
 
-
-
-
+export interface BtcSpotTicker {
+  price: number;
+  change24h: number;
+  high24h: number;
+  low24h: number;
+  volume: number;
+  updatedAt: number;
+}
