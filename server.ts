@@ -1282,12 +1282,14 @@ function evaluateMomentumStrategy(symbol: string) {
     const positionAgeSec = pos.openedAt > 0 ? (nowMs / 1000 - pos.openedAt) : 999;
 
     // A. TAKE-PROFIT: Exit strictly on 85¢ on the spot (locked at 85¢ profit)
-    // Triggers if currentPrice, realPrice (bid, ask, or last traded price) hits or crosses 85¢
-    const isTakeProfit = pos.currentPrice >= 0.85 || realPrice >= 0.85 || bestBid >= 0.85 || lastPrice >= 0.85 || (bestAsk >= 0.85 && positionAgeSec >= 1);
+    // Triggers if currentPrice >= 0.85.
+    const isTakeProfit = pos.currentPrice >= 0.85;
     if (isTakeProfit) {
-      console.log(`🎯 [${symbol} 15m TAKE-PROFIT 85¢ ON THE SPOT] ${pos.title} (${pos.outcome}) Price hit 85¢. Locking profit @ 85.0¢.`);
+      console.log(`🎯 [${symbol} 15m TAKE-PROFIT TRIGGERED] ${pos.title} (${pos.outcome}) Price: ${pos.currentPrice}. Executing fake-close at 85.0¢.`);
       const res = executeInternalSell(account, key, 1.0, 'TAKE_PROFIT_85¢_SPOT', 0.85, DEFAULT_TAKER_FEE_RATE, 'assumed', thisBook);
-      if (!res.error) {
+      if (res.error) {
+        console.error(`❌ [${symbol} 15m TAKE-PROFIT ERROR]`, res.error);
+      } else {
         momentumAccounts[symbol] = res.account;
         flushState();
         broadcastSSE({
@@ -1296,7 +1298,7 @@ function evaluateMomentumStrategy(symbol: string) {
           account: momentumAccounts[symbol],
           metrics: calculatePortfolioMetrics(momentumAccounts[symbol], livePrices),
         });
-        console.log(`✅ [${symbol} 15m TAKE-PROFIT 85¢ EXECUTED] Closed ${pos.outcome} @ 85.0¢.`);
+        console.log(`✅ [${symbol} 15m TAKE-PROFIT EXECUTED] Closed ${pos.outcome} @ 85.0¢.`);
       }
       continue;
     }
