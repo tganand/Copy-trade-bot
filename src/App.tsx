@@ -477,10 +477,10 @@ export default function App() {
             <div className="p-3.5 rounded-xl bg-purple-950/20 border border-purple-500/30 space-y-1.5">
               <div className="flex items-center gap-2 font-bold text-purple-300">
                 <span className="flex h-2 w-2 rounded-full bg-purple-400 animate-pulse" />
-                <span>TradeLabs AI Feed Integration</span>
+                <span>Absolute Force-Close Engine Active</span>
               </div>
               <p className="text-slate-400 leading-relaxed font-mono text-[11px]">
-                Direct live pricing via <b>clob.polymarket.com/midpoint</b>, buyer bids (<b>/price?side=sell</b>), seller asks (<b>/price?side=buy</b>), plus Binance spot stream (<b>btcusdt@ticker</b>).
+                TP/SL exit rules are now absolute priority. <b>85¢ Take-Profit</b> and <b>$3.00 Loss Exit</b> are forced instantly regardless of order book state or price age.
               </p>
             </div>
 
